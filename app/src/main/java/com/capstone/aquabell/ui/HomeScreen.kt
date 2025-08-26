@@ -150,19 +150,20 @@ private fun HomeContent(
     onRefresh: () -> Unit,
     onOverride: (RelayStates) -> Unit,
 ) {
-    LazyColumn(
+    Column(
         modifier = modifier
             .fillMaxSize()
             .background(MaterialTheme.colorScheme.surface)
+            .verticalScroll(rememberScrollState())
             .padding(horizontal = 16.dp),
         verticalArrangement = Arrangement.spacedBy(16.dp)
     ) {
-        item { ConnectionStatusBanner(connectionState, isRefreshing, onRefresh) }
-        item { SectionHeader(title = "Dashboard") }
-        item { DashboardGrid(live) }
-        item { ControlHeader(autoModeEnabled = autoModeEnabled, onToggleAuto = onToggleAuto) }
-        item { ControlGrid(autoEnabled = autoModeEnabled, live = live, onOverride = onOverride) }
-        item { Spacer(Modifier.height(16.dp)) }
+        ConnectionStatusBanner(connectionState, isRefreshing, onRefresh)
+        SectionHeader(title = "Dashboard")
+        DashboardGrid(live)
+        ControlHeader(autoModeEnabled = autoModeEnabled, onToggleAuto = onToggleAuto)
+        ControlGrid(autoEnabled = autoModeEnabled, live = live, onOverride = onOverride)
+        Spacer(Modifier.height(16.dp))
     }
 }
 
@@ -291,22 +292,60 @@ fun DashboardGrid(live: com.capstone.aquabell.data.model.LiveDataSnapshot?) {
         MetricData("Turbidity Level", if (live!=null) String.format("%.0f NTU", live.turbidityNTU) else "-", R.drawable.ic_turbidity),
     )
     
-    LazyVerticalGrid(
-        columns = GridCells.Fixed(2),
-        verticalArrangement = Arrangement.spacedBy(12.dp),
-        horizontalArrangement = Arrangement.spacedBy(12.dp),
-        modifier = Modifier
-            .fillMaxWidth()
-            .height(320.dp) // Fixed height to prevent infinite constraints
-    ) {
-        items(metrics) { metric ->
-            MetricCard(
-                title = metric.title,
-                value = metric.value,
-                status = "Excellent",
-                iconRes = metric.iconRes,
-                borderColor = outline,
-            )
+    Column {
+        // Row 1: First 2 metrics
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.spacedBy(12.dp)
+        ) {
+            metrics.take(2).forEach { metric ->
+                MetricCard(
+                    title = metric.title,
+                    value = metric.value,
+                    status = "Excellent",
+                    iconRes = metric.iconRes,
+                    borderColor = outline,
+                    modifier = Modifier.weight(1f)
+                )
+            }
+        }
+        
+        Spacer(Modifier.height(12.dp))
+        
+        // Row 2: Next 2 metrics
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.spacedBy(12.dp)
+        ) {
+            metrics.drop(2).take(2).forEach { metric ->
+                MetricCard(
+                    title = metric.title,
+                    value = metric.value,
+                    status = "Excellent",
+                    iconRes = metric.iconRes,
+                    borderColor = outline,
+                    modifier = Modifier.weight(1f)
+                )
+            }
+        }
+        
+        Spacer(Modifier.height(12.dp))
+        
+        // Row 3: Last 2 metrics
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.spacedBy(12.dp)
+        ) {
+            metrics.drop(4).forEach { metric ->
+                MetricCard(
+                    title = metric.title,
+                    value = metric.value,
+                    status = "Excellent",
+                    iconRes = metric.iconRes,
+                    borderColor = outline,
+                    modifier = Modifier.weight(1f)
+                )
+            }
         }
     }
 }
@@ -541,25 +580,47 @@ private fun ControlGrid(autoEnabled: Boolean, live: com.capstone.aquabell.data.m
             }
         }
         
-        LazyVerticalGrid(
-            columns = GridCells.Fixed(2),
-            verticalArrangement = Arrangement.spacedBy(12.dp),
-            horizontalArrangement = Arrangement.spacedBy(12.dp),
-            modifier = Modifier
-                .fillMaxWidth()
-                .height(if (autoEnabled) 200.dp else 260.dp) // Smaller height when auto mode notice is shown
-        ) {
-            items(tiles) { spec ->
-                val border = if (!autoEnabled && spec.active) spec.accent else outline
-                ControlTile(
-                    title = spec.title,
-                    iconRes = spec.iconRes,
-                    active = spec.active,
-                    enabled = !autoEnabled,
-                    borderColor = border,
-                    accent = spec.accent,
-                    onClick = spec.toggle
-                )
+        Column {
+            // Row 1: First 2 controls
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(12.dp)
+            ) {
+                tiles.take(2).forEach { spec ->
+                    val border = if (!autoEnabled && spec.active) spec.accent else outline
+                    ControlTile(
+                        title = spec.title,
+                        iconRes = spec.iconRes,
+                        active = spec.active,
+                        enabled = !autoEnabled,
+                        borderColor = border,
+                        accent = spec.accent,
+                        onClick = spec.toggle,
+                        modifier = Modifier.weight(1f)
+                    )
+                }
+            }
+            
+            Spacer(Modifier.height(12.dp))
+            
+            // Row 2: Last 2 controls
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(12.dp)
+            ) {
+                tiles.drop(2).forEach { spec ->
+                    val border = if (!autoEnabled && spec.active) spec.accent else outline
+                    ControlTile(
+                        title = spec.title,
+                        iconRes = spec.iconRes,
+                        active = spec.active,
+                        enabled = !autoEnabled,
+                        borderColor = border,
+                        accent = spec.accent,
+                        onClick = spec.toggle,
+                        modifier = Modifier.weight(1f)
+                    )
+                }
             }
         }
     }
