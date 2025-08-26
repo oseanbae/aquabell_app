@@ -30,6 +30,7 @@ import androidx.compose.material.icons.filled.Home
 import androidx.compose.material.icons.filled.Notifications
 import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material.icons.filled.Refresh
+import androidx.compose.material.icons.filled.Info
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.IconButton
@@ -379,31 +380,73 @@ private fun MetricCard(
 
 @Composable
 private fun ControlHeader(autoModeEnabled: Boolean, onToggleAuto: (Boolean) -> Unit) {
-    Row(
+    Column(
         modifier = Modifier
             .fillMaxWidth()
-            .padding(top = 8.dp, bottom = 12.dp),
-        verticalAlignment = Alignment.CenterVertically,
-        horizontalArrangement = Arrangement.SpaceBetween
+            .padding(top = 8.dp, bottom = 12.dp)
     ) {
-        Text(
-            text = "Control",
-            style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold)
-        )
-        Row(verticalAlignment = Alignment.CenterVertically) {
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.SpaceBetween
+        ) {
             Text(
-                text = "Auto Mode",
-                style = MaterialTheme.typography.bodyMedium,
-                color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.8f)
+                text = "Control",
+                style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold)
+            )
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Text(
+                    text = if (autoModeEnabled) "Auto Mode" else "Manual Mode",
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = if (autoModeEnabled) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.secondary
+                )
+                Spacer(Modifier.width(8.dp))
+                Switch(
+                    checked = autoModeEnabled,
+                    onCheckedChange = onToggleAuto,
+                    colors = SwitchDefaults.colors(
+                        checkedThumbColor = MaterialTheme.colorScheme.onPrimary,
+                        checkedTrackColor = MaterialTheme.colorScheme.primary,
+                    )
+                )
+            }
+        }
+        
+        // Mode description
+        Text(
+            text = if (autoModeEnabled) {
+                "System automatically controls all devices based on sensor readings"
+            } else {
+                "You can manually control each device using the buttons below"
+            },
+            style = MaterialTheme.typography.bodySmall,
+            color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.7f),
+            modifier = Modifier.padding(top = 4.dp)
+        )
+        
+        // Mode status indicator
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(top = 8.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Box(
+                modifier = Modifier
+                    .size(8.dp)
+                    .clip(CircleShape)
+                    .background(
+                        if (autoModeEnabled) MaterialTheme.colorScheme.primary 
+                        else MaterialTheme.colorScheme.secondary
+                    )
             )
             Spacer(Modifier.width(8.dp))
-            Switch(
-                checked = autoModeEnabled,
-                onCheckedChange = onToggleAuto,
-                colors = SwitchDefaults.colors(
-                    checkedThumbColor = MaterialTheme.colorScheme.onPrimary,
-                    checkedTrackColor = MaterialTheme.colorScheme.primary,
-                )
+            Text(
+                text = if (autoModeEnabled) "Auto Mode Active" else "Manual Mode Active",
+                style = MaterialTheme.typography.labelMedium,
+                color = if (autoModeEnabled) MaterialTheme.colorScheme.primary 
+                        else MaterialTheme.colorScheme.secondary,
+                fontWeight = FontWeight.Medium
             )
         }
     }
@@ -463,25 +506,61 @@ private fun ControlGrid(autoEnabled: Boolean, live: com.capstone.aquabell.data.m
         },
     )
 
-    LazyVerticalGrid(
-        columns = GridCells.Fixed(2),
-        verticalArrangement = Arrangement.spacedBy(12.dp),
-        horizontalArrangement = Arrangement.spacedBy(12.dp),
-        modifier = Modifier
-            .fillMaxWidth()
-            .height(260.dp) // Fixed height to prevent infinite constraints
-    ) {
-        items(tiles) { spec ->
-            val border = if (!autoEnabled && spec.active) spec.accent else outline
-            ControlTile(
-                title = spec.title,
-                iconRes = spec.iconRes,
-                active = spec.active,
-                enabled = !autoEnabled,
-                borderColor = border,
-                accent = spec.accent,
-                onClick = spec.toggle
-            )
+    Column {
+        // Auto mode notice
+        if (autoEnabled) {
+            OutlinedCard(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(bottom = 12.dp),
+                border = BorderStroke(1.dp, MaterialTheme.colorScheme.primary.copy(alpha = 0.3f)),
+                colors = CardDefaults.cardColors(
+                    containerColor = MaterialTheme.colorScheme.primary.copy(alpha = 0.05f)
+                ),
+                shape = RoundedCornerShape(12.dp)
+            ) {
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(12.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    Icon(
+                        imageVector = Icons.Default.Info,
+                        contentDescription = null,
+                        tint = MaterialTheme.colorScheme.primary,
+                        modifier = Modifier.size(16.dp)
+                    )
+                    Text(
+                        text = "Controls are disabled in Auto Mode",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.primary
+                    )
+                }
+            }
+        }
+        
+        LazyVerticalGrid(
+            columns = GridCells.Fixed(2),
+            verticalArrangement = Arrangement.spacedBy(12.dp),
+            horizontalArrangement = Arrangement.spacedBy(12.dp),
+            modifier = Modifier
+                .fillMaxWidth()
+                .height(if (autoEnabled) 200.dp else 260.dp) // Smaller height when auto mode notice is shown
+        ) {
+            items(tiles) { spec ->
+                val border = if (!autoEnabled && spec.active) spec.accent else outline
+                ControlTile(
+                    title = spec.title,
+                    iconRes = spec.iconRes,
+                    active = spec.active,
+                    enabled = !autoEnabled,
+                    borderColor = border,
+                    accent = spec.accent,
+                    onClick = spec.toggle
+                )
+            }
         }
     }
 }
