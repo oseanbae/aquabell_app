@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "550229316394",
+    "project_id": "aquabell-cap2025",
+    "storage_bucket": "aquabell-cap2025.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:550229316394:android:e8f39f780e2fb44740c453",
+        "android_client_info": {
+          "package_name": "com.capstone.aquabell"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyBuFuNosVsjAII_wXjO2msPXYoNUsxsAZE"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
