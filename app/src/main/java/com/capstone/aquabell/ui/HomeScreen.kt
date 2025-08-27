@@ -24,7 +24,6 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
-import androidx.compose.foundation.Canvas
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Home
 import androidx.compose.material.icons.filled.Notifications
@@ -56,10 +55,6 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.Path
-import androidx.compose.ui.graphics.StrokeCap
-import androidx.compose.ui.graphics.StrokeJoin
-import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
@@ -359,6 +354,16 @@ private fun MetricCard(
     iconRes: Int,
     borderColor: Color,
 ) {
+    var showTooltip by remember { mutableStateOf(false) }
+    
+    // Auto-hide tooltip after 3 seconds
+    LaunchedEffect(showTooltip) {
+        if (showTooltip) {
+            kotlinx.coroutines.delay(3000)
+            showTooltip = false
+        }
+    }
+    
     Box(
         modifier = modifier
             .height(100.dp) // Increased height to accommodate longer text
@@ -410,6 +415,59 @@ private fun MetricCard(
                         text = status, 
                         style = MaterialTheme.typography.labelSmall, 
                         color = MaterialTheme.colorScheme.tertiary
+                    )
+                }
+                
+                // Info icon for tooltip
+                Box(
+                    modifier = Modifier
+                        .size(24.dp)
+                        .clickable { showTooltip = !showTooltip },
+                    contentAlignment = Alignment.Center
+                ) {
+                    Icon(
+                        imageVector = Icons.Default.Info,
+                        contentDescription = "Sensor information",
+                        tint = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f),
+                        modifier = Modifier.size(20.dp)
+                    )
+                }
+            }
+        }
+        
+        // Tooltip
+        if (showTooltip) {
+            val tooltipText = when (title) {
+                "Air Temp." -> "Air temperature for fish comfort and plant growth."
+                "Air Humidity RH" -> "Air moisture levels to prevent stress or mold."
+                "Water Temp." -> "Water temperature for fish health and nutrient uptake."
+                "pH Level" -> "Water acidity/alkalinity for fish, plants, and bacteria."
+                "Dissolved Oxygen" -> "Oxygen in water for fish survival and waste breakdown."
+                "Turbidity Level" -> "Water clarity; high levels signal poor quality."
+                else -> "Sensor information"
+            }
+
+
+            Box(
+                modifier = Modifier
+                    .align(Alignment.TopEnd)
+                    .padding(top = 8.dp, end = 8.dp)
+                    .width(240.dp)
+            ) {
+                // Clean tooltip with elevation
+                OutlinedCard(
+                    colors = CardDefaults.cardColors(
+                        containerColor = MaterialTheme.colorScheme.surface
+                    ),
+                    border = BorderStroke(1.dp, MaterialTheme.colorScheme.outline),
+                    shape = RoundedCornerShape(16.dp),
+                    elevation = CardDefaults.cardElevation(defaultElevation = 8.dp)
+                ) {
+                    Text(
+                        text = tooltipText,
+                        style = MaterialTheme.typography.bodySmall,
+                        modifier = Modifier.padding(16.dp),
+                        color = MaterialTheme.colorScheme.onSurface
                     )
                 }
             }
