@@ -54,6 +54,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.scale
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.res.painterResource
@@ -77,6 +78,7 @@ fun HomeScreen(modifier: Modifier = Modifier) {
     var autoModeEnabled by remember { mutableStateOf(true) }
     var selectedNavIndex by remember { mutableIntStateOf(1) } // center is Home
     var live by remember { mutableStateOf<com.capstone.aquabell.data.model.LiveDataSnapshot?>(null) }
+    var command by remember { mutableStateOf(com.capstone.aquabell.data.model.CommandControl()) }
     var offline by remember { mutableStateOf<com.capstone.aquabell.data.model.LiveDataSnapshot?>(null) }
     var connectionState by remember { mutableStateOf(FirebaseRepository.ConnectionState.CONNECTING) }
     var isRefreshing by remember { mutableStateOf(false) }
@@ -86,6 +88,7 @@ fun HomeScreen(modifier: Modifier = Modifier) {
         offline = repo.getCachedLiveData()
         repo.connectionState.collectLatest { connectionState = it }
         repo.liveData().collectLatest { live = it }
+        repo.commandControl().collectLatest { command = it }
     }
 
     fun onRefresh() {
@@ -121,11 +124,18 @@ fun HomeScreen(modifier: Modifier = Modifier) {
                         CoroutineScope(Dispatchers.IO).launch { repo.setControlMode(mode) }
                     },
                     live = live ?: offline,
+                    command = command,
                     connectionState = connectionState,
                     isRefreshing = isRefreshing,
                     onRefresh = { onRefresh() },
                     onOverride = { overrides ->
                         CoroutineScope(Dispatchers.IO).launch { repo.setRelayOverrides(overrides) }
+                    },
+                    onSetActuatorMode = { actuator, mode ->
+                        CoroutineScope(Dispatchers.IO).launch { repo.setActuatorMode(actuator, mode) }
+                    },
+                    onSetActuatorValue = { actuator, value ->
+                        CoroutineScope(Dispatchers.IO).launch { repo.setActuatorValueRTDB(actuator, value) }
                     }
                 )
                 else -> AlertsScreen(modifier = Modifier.padding(inner))
@@ -140,10 +150,13 @@ private fun HomeContent(
     autoModeEnabled: Boolean,
     onToggleAuto: (Boolean) -> Unit,
     live: com.capstone.aquabell.data.model.LiveDataSnapshot?,
+    command: com.capstone.aquabell.data.model.CommandControl,
     connectionState: FirebaseRepository.ConnectionState,
     isRefreshing: Boolean,
     onRefresh: () -> Unit,
     onOverride: (RelayStates) -> Unit,
+    onSetActuatorMode: (actuator: String, mode: ControlMode) -> Unit,
+    onSetActuatorValue: (actuator: String, value: Boolean) -> Unit,
 ) {
     Column(
         modifier = modifier
@@ -156,8 +169,13 @@ private fun HomeContent(
         ConnectionStatusBanner(connectionState, isRefreshing, onRefresh)
         SectionHeader(title = "Dashboard")
         DashboardGrid(live)
+        WaterLevelModule(live)
         ControlHeader(autoModeEnabled = autoModeEnabled, onToggleAuto = onToggleAuto)
-        ControlGrid(autoEnabled = autoModeEnabled, live = live, onOverride = onOverride)
+        PerActuatorControlGrid(
+            command = command,
+            onSetActuatorMode = onSetActuatorMode,
+            onSetActuatorValue = onSetActuatorValue
+        )
         Spacer(Modifier.height(16.dp))
     }
 }
@@ -346,6 +364,89 @@ fun DashboardGrid(live: com.capstone.aquabell.data.model.LiveDataSnapshot?) {
 }
 
 @Composable
+private fun WaterLevelModule(live: com.capstone.aquabell.data.model.LiveDataSnapshot?) {
+    val outline = MaterialTheme.colorScheme.outline
+    val isLowWater = live?.floatTriggered == true
+    
+    OutlinedCard(
+        modifier = Modifier.fillMaxWidth(),
+        colors = CardDefaults.cardColors(
+            containerColor = if (isLowWater) {
+                Color(0xFFFF5722).copy(alpha = 0.05f) // Light red background for low water
+            } else {
+                MaterialTheme.colorScheme.surface
+            }
+        ),
+        shape = RoundedCornerShape(16.dp),
+        border = BorderStroke(
+            width = 2.dp,
+            color = if (isLowWater) Color(0xFFFF5722) else outline
+        )
+    ) {
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(16.dp),
+            horizontalArrangement = Arrangement.spacedBy(16.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            // Icon with background
+            Box(
+                modifier = Modifier
+                    .size(56.dp)
+                    .clip(RoundedCornerShape(16.dp))
+                    .background(
+                        if (isLowWater) {
+                            Color(0xFFFF5722).copy(alpha = 0.15f)
+                        } else {
+                            MaterialTheme.colorScheme.primary.copy(alpha = 0.12f)
+                        }
+                    ),
+                contentAlignment = Alignment.Center
+            ) {
+                Icon(
+                    painter = painterResource(id = R.drawable.ic_valve),
+                    contentDescription = "Water Level",
+                    tint = if (isLowWater) Color(0xFFFF5722) else MaterialTheme.colorScheme.primary,
+                    modifier = Modifier.size(28.dp)
+                )
+            }
+            
+            // Content
+            Column(modifier = Modifier.weight(1f)) {
+                Text(
+                    text = "Water Level",
+                    style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold),
+                    color = MaterialTheme.colorScheme.onSurface
+                )
+                Spacer(Modifier.height(4.dp))
+                Text(
+                    text = if (isLowWater) "LOW WATER LEVEL DETECTED" else "Water level is normal",
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = if (isLowWater) Color(0xFFFF5722) else MaterialTheme.colorScheme.onSurface.copy(alpha = 0.7f)
+                )
+                Spacer(Modifier.height(8.dp))
+                Text(
+                    text = if (isLowWater) "⚠️ Check water supply immediately" else "✓ System operating normally",
+                    style = MaterialTheme.typography.labelMedium,
+                    color = if (isLowWater) Color(0xFFFF5722) else MaterialTheme.colorScheme.tertiary
+                )
+            }
+            
+            // Status indicator
+            Box(
+                modifier = Modifier
+                    .size(24.dp)
+                    .clip(CircleShape)
+                    .background(
+                        if (isLowWater) Color(0xFFFF5722) else Color(0xFF4CAF50)
+                    )
+            )
+        }
+    }
+}
+
+@Composable
 private fun MetricCard(
     modifier: Modifier = Modifier,
     title: String,
@@ -387,7 +488,13 @@ private fun MetricCard(
                     modifier = Modifier
                         .size(40.dp)
                         .clip(RoundedCornerShape(12.dp))
-                        .background(MaterialTheme.colorScheme.primary.copy(alpha = 0.12f)),
+                        .background(
+                            if (title == "Water Level" && status == "Low") {
+                                Color(0xFFFF5722).copy(alpha = 0.15f) // Red-orange background for low water level
+                            } else {
+                                MaterialTheme.colorScheme.primary.copy(alpha = 0.12f)
+                            }
+                        ),
                     contentAlignment = Alignment.Center
                 ) {
                     Icon(
@@ -401,7 +508,8 @@ private fun MetricCard(
                 Column(modifier = Modifier.weight(1f)) {
                     Text(
                         text = value, 
-                        style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.SemiBold)
+                        style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.SemiBold),
+                        color = if (title == "Water Level" && status == "Low") Color(0xFFFF5722) else MaterialTheme.colorScheme.onSurface
                     )
                     Text(
                         text = title, 
@@ -414,7 +522,7 @@ private fun MetricCard(
                     Text(
                         text = status, 
                         style = MaterialTheme.typography.labelSmall, 
-                        color = MaterialTheme.colorScheme.tertiary
+                        color = if (status == "Low") Color(0xFFFF5722) else MaterialTheme.colorScheme.tertiary
                     )
                 }
                 
@@ -444,6 +552,7 @@ private fun MetricCard(
                 "pH Level" -> "Water acidity/alkalinity for fish, plants, and bacteria."
                 "Dissolved Oxygen" -> "Oxygen in water for fish survival and waste breakdown."
                 "Turbidity Level" -> "Water clarity; high levels signal poor quality."
+                "Water Level" -> "Water level status; LOW indicates water level is below threshold."
                 else -> "Sensor information"
             }
 
@@ -741,6 +850,222 @@ private fun ControlTile(
                     style = MaterialTheme.typography.labelLarge.copy(letterSpacing = 1.5.sp),
                     color = labelColor
                 )
+            }
+        }
+    }
+}
+
+@Composable
+private fun PerActuatorControlGrid(
+    command: com.capstone.aquabell.data.model.CommandControl,
+    onSetActuatorMode: (actuator: String, mode: ControlMode) -> Unit,
+    onSetActuatorValue: (actuator: String, value: Boolean) -> Unit,
+) {
+    val outline = MaterialTheme.colorScheme.outline
+
+    // Accent colors
+    val lightColor = Color(0xFFFFC107)
+    val fansColor = Color(0xFF42A5F5)
+    val pumpColor = Color(0xFF26A69A)
+    val valveColor = Color(0xFF66BB6A)
+
+    data class Tile(
+        val key: String,
+        val title: String,
+        val iconRes: Int,
+        val active: Boolean,
+        val mode: ControlMode,
+        val accent: Color,
+        val onToggleValue: () -> Unit,
+        val onToggleMode: () -> Unit,
+    )
+
+    val tiles: List<Tile> = listOf(
+        Tile(
+            key = "light",
+            title = "LIGHT",
+            iconRes = R.drawable.ic_light,
+            active = command.light.value,
+            mode = command.light.mode,
+            accent = lightColor,
+            onToggleValue = { onSetActuatorValue("light", !command.light.value) },
+            onToggleMode = {
+                val next = if (command.light.mode == ControlMode.AUTO) ControlMode.MANUAL else ControlMode.AUTO
+                onSetActuatorMode("light", next)
+            }
+        ),
+        Tile(
+            key = "fan",
+            title = "FANS",
+            iconRes = R.drawable.ic_fans,
+            active = command.fan.value,
+            mode = command.fan.mode,
+            accent = fansColor,
+            onToggleValue = { onSetActuatorValue("fan", !command.fan.value) },
+            onToggleMode = {
+                val next = if (command.fan.mode == ControlMode.AUTO) ControlMode.MANUAL else ControlMode.AUTO
+                onSetActuatorMode("fan", next)
+            }
+        ),
+        Tile(
+            key = "pump",
+            title = "PUMP",
+            iconRes = R.drawable.ic_pump,
+            active = command.pump.value,
+            mode = command.pump.mode,
+            accent = pumpColor,
+            onToggleValue = { onSetActuatorValue("pump", !command.pump.value) },
+            onToggleMode = {
+                val next = if (command.pump.mode == ControlMode.AUTO) ControlMode.MANUAL else ControlMode.AUTO
+                onSetActuatorMode("pump", next)
+            }
+        ),
+        Tile(
+            key = "valve",
+            title = "VALVE",
+            iconRes = R.drawable.ic_valve,
+            active = command.valve.value,
+            mode = command.valve.mode,
+            accent = valveColor,
+            onToggleValue = { onSetActuatorValue("valve", !command.valve.value) },
+            onToggleMode = {
+                val next = if (command.valve.mode == ControlMode.AUTO) ControlMode.MANUAL else ControlMode.AUTO
+                onSetActuatorMode("valve", next)
+            }
+        ),
+    )
+
+    @Composable
+    fun ActuatorTile(tile: Tile, modifier: Modifier = Modifier) {
+        // Optimistic local UI state that mirrors Firestore but updates immediately on user action
+        var localMode by remember(tile.key) { mutableStateOf(tile.mode) }
+        var localActive by remember(tile.key) { mutableStateOf(tile.active) }
+
+        // Sync local state whenever Firestore command changes for this tile
+        LaunchedEffect(tile.mode, tile.active) {
+            localMode = tile.mode
+            localActive = tile.active
+        }
+
+        val enabled = localMode == ControlMode.MANUAL
+        val isActive = localActive && enabled
+        val border = if (isActive) tile.accent else outline
+        val enabledContainer = if (isActive) tile.accent.copy(alpha = 0.18f) else MaterialTheme.colorScheme.surface
+        val container = if (enabled) enabledContainer else enabledContainer.copy(alpha = 0.6f)
+
+        OutlinedCard(
+            modifier = modifier
+                .height(148.dp),
+            shape = RoundedCornerShape(16.dp),
+            colors = CardDefaults.cardColors(containerColor = container),
+            border = BorderStroke(1.dp, border)
+        ) {
+            Column(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .padding(12.dp),
+                verticalArrangement = Arrangement.SpaceBetween
+            ) {
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Text(
+                        tile.title,
+                        style = MaterialTheme.typography.labelLarge.copy(letterSpacing = 1.5.sp),
+                        color = if (isActive) tile.accent else MaterialTheme.colorScheme.onSurface
+                    )
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Text(
+                            text = if (localMode == ControlMode.AUTO) "AUTO" else "MANUAL",
+                            style = MaterialTheme.typography.labelSmall,
+                            color = if (localMode == ControlMode.AUTO) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.secondary
+                        )
+                        Spacer(Modifier.width(6.dp))
+                        Switch(
+                            checked = localMode == ControlMode.MANUAL,
+                            onCheckedChange = { _ ->
+                                // Toggle locally for instant feedback
+                                localMode = if (localMode == ControlMode.AUTO) ControlMode.MANUAL else ControlMode.AUTO
+                                tile.onToggleMode()
+                            },
+                            modifier = Modifier.scale(0.9f),
+                            colors = SwitchDefaults.colors(
+                                checkedThumbColor = MaterialTheme.colorScheme.onPrimary,
+                                checkedTrackColor = MaterialTheme.colorScheme.primary,
+                                uncheckedThumbColor = MaterialTheme.colorScheme.onSurface,
+                                uncheckedTrackColor = MaterialTheme.colorScheme.outline.copy(alpha = 0.5f),
+                            )
+                        )
+                    }
+                }
+
+                Column(
+                    horizontalAlignment = Alignment.CenterHorizontally,
+                    verticalArrangement = Arrangement.Center
+                ) {
+                    Box(
+                        modifier = Modifier
+                            .size(64.dp)
+                            .clip(RoundedCornerShape(20.dp))
+                            .background(
+                                if (isActive) tile.accent.copy(alpha = 0.12f)
+                                else MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f)
+                            )
+                            .clickable(enabled = enabled) {
+                                // Update UI instantly, then write to Firestore
+                                localActive = !localActive
+                                tile.onToggleValue()
+                            },
+                        contentAlignment = Alignment.Center
+                    ) {
+                        val tint = if (isActive) tile.accent else MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f)
+                        Icon(
+                            painter = painterResource(id = tile.iconRes),
+                            contentDescription = null,
+                            tint = tint,
+                            modifier = Modifier.size(32.dp)
+                        )
+                    }
+                    
+                    Spacer(Modifier.height(8.dp))
+                    
+                    Text(
+                        text = if (localActive) "On" else "Off",
+                        style = MaterialTheme.typography.labelLarge.copy(fontWeight = FontWeight.Medium),
+                        color = if (isActive) tile.accent else MaterialTheme.colorScheme.onSurface.copy(alpha = 0.7f)
+                    )
+                }
+
+                // Helper text for clarity
+                val helper = if (localMode == ControlMode.AUTO) "Automatic control is active. Switch to Manual to override." else "Manual control is active."
+                Text(
+                    text = helper,
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.65f)
+                )
+            }
+        }
+    }
+
+    Column {
+        // Grid: 2 rows x 2 columns
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.spacedBy(12.dp)
+        ) {
+            tiles.take(2).forEach { tile ->
+                ActuatorTile(tile, modifier = Modifier.weight(1f))
+            }
+        }
+        Spacer(Modifier.height(12.dp))
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.spacedBy(12.dp)
+        ) {
+            tiles.drop(2).forEach { tile ->
+                ActuatorTile(tile, modifier = Modifier.weight(1f))
             }
         }
     }

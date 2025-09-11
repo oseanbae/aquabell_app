@@ -27,6 +27,19 @@ data class ControlCommands(
     val override: RelayStates = RelayStates(),
 )
 
+// New schema for per-actuator commands in command_control collection
+data class ActuatorCommand(
+    val mode: ControlMode = ControlMode.AUTO,
+    val value: Boolean = false,
+)
+
+data class CommandControl(
+    val fan: ActuatorCommand = ActuatorCommand(),
+    val light: ActuatorCommand = ActuatorCommand(),
+    val pump: ActuatorCommand = ActuatorCommand(),
+    val valve: ActuatorCommand = ActuatorCommand(),
+)
+
 data class SensorLog(
     val waterTemp: Double = 0.0,
     val pH: Double = 0.0,
@@ -36,6 +49,23 @@ data class SensorLog(
     val airHumidity: Double = 0.0,
     val floatTriggered: Boolean = false,
     val timestamp: Timestamp = Timestamp.now(),
+)
+
+// RTDB Models for actuator commands
+data class ActuatorState(
+    val isAuto: Boolean = true,
+    val value: Boolean = false
+)
+
+data class ActuatorCommands(
+    val fan: ActuatorState = ActuatorState(),
+    val light: ActuatorState = ActuatorState(),
+    val pump: ActuatorState = ActuatorState(),
+    val valve: ActuatorState = ActuatorState()
+)
+
+data class CommandsRoot(
+    val aquabell_esp32: ActuatorCommands = ActuatorCommands()
 )
 
 

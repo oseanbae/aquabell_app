@@ -60,6 +60,7 @@ dependencies {
     // Use an auth version compatible with minSdk 21
     implementation("com.google.firebase:firebase-auth-ktx:22.3.1")
     implementation("com.google.firebase:firebase-firestore-ktx:25.1.1")
+    implementation("com.google.firebase:firebase-database-ktx:21.0.0")
     // Coroutines support for Task.await
     implementation("org.jetbrains.kotlinx:kotlinx-coroutines-play-services:1.8.1")
     
