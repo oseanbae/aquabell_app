@@ -37,6 +37,13 @@ class AquabellViewModel(
             initialValue = ActuatorCommands()
         )
 
+    val actuatorStates: StateFlow<ActuatorStates> = repository.actuatorStates()
+        .stateIn(
+            scope = viewModelScope,
+            started = SharingStarted.WhileSubscribed(5000),
+            initialValue = ActuatorStates()
+        )
+
     // Individual actuator states for easy access
     val fanState: StateFlow<ActuatorState> = actuatorCommands
         .map { it.fan }
@@ -63,6 +70,39 @@ class AquabellViewModel(
         )
 
     val valveState: StateFlow<ActuatorState> = actuatorCommands
+        .map { it.valve }
+        .stateIn(
+            scope = viewModelScope,
+            started = SharingStarted.WhileSubscribed(5000),
+            initialValue = ActuatorState()
+        )
+
+    // Individual confirmed actuator states (actual states from ESP32)
+    val fanConfirmedState: StateFlow<ActuatorState> = actuatorStates
+        .map { it.fan }
+        .stateIn(
+            scope = viewModelScope,
+            started = SharingStarted.WhileSubscribed(5000),
+            initialValue = ActuatorState()
+        )
+
+    val lightConfirmedState: StateFlow<ActuatorState> = actuatorStates
+        .map { it.light }
+        .stateIn(
+            scope = viewModelScope,
+            started = SharingStarted.WhileSubscribed(5000),
+            initialValue = ActuatorState()
+        )
+
+    val pumpConfirmedState: StateFlow<ActuatorState> = actuatorStates
+        .map { it.pump }
+        .stateIn(
+            scope = viewModelScope,
+            started = SharingStarted.WhileSubscribed(5000),
+            initialValue = ActuatorState()
+        )
+
+    val valveConfirmedState: StateFlow<ActuatorState> = actuatorStates
         .map { it.valve }
         .stateIn(
             scope = viewModelScope,

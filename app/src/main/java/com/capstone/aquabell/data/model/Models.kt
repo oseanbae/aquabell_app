@@ -68,4 +68,12 @@ data class CommandsRoot(
     val aquabell_esp32: ActuatorCommands = ActuatorCommands()
 )
 
+// RTDB Models for actuator states (actual confirmed states from ESP32)
+data class ActuatorStates(
+    val fan: ActuatorState = ActuatorState(),
+    val light: ActuatorState = ActuatorState(),
+    val pump: ActuatorState = ActuatorState(),
+    val valve: ActuatorState = ActuatorState()
+)
+
 

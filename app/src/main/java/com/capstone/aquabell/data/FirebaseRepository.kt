@@ -5,7 +5,6 @@ import com.capstone.aquabell.data.model.*
 import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.firestore.DocumentReference
 import com.google.firebase.firestore.FirebaseFirestore
-import com.google.firebase.firestore.FirebaseFirestoreSettings
 import com.google.firebase.database.FirebaseDatabase
 import com.google.firebase.database.DatabaseReference
 import com.google.firebase.database.ValueEventListener
@@ -15,7 +14,6 @@ import kotlinx.coroutines.channels.awaitClose
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.callbackFlow
-import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.tasks.await
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.delay
@@ -102,106 +100,90 @@ class FirebaseRepository(
     }
 
     private fun liveDataDoc(): DocumentReference = db.collection("live_data").document(deviceId)
-    private fun controlDoc(): DocumentReference = db.collection("control_commands").document(deviceId)
-    private fun commandControlDoc(): DocumentReference = db.collection("command_control").document(deviceId)
+    // Removed controlDoc() and commandControlDoc() - now using RTDB for actuator control
     private fun logsCollection() = db.collection("sensor_logs").document(deviceId).collection("logs")
     
     // RTDB references
     private fun commandsRef(): DatabaseReference = rtdb.getReference("commands").child(deviceId)
+    private fun actuatorStatesRef(): DatabaseReference = rtdb.getReference("actuator_states").child(deviceId)
 
     fun liveData(): Flow<LiveDataSnapshot> = callbackFlow {
-        val reg = liveDataDoc().addSnapshotListener { snap, err ->
-            if (err != null) {
-                trySend(LiveDataSnapshot())
-                connectionState.tryEmit(ConnectionState.NOT_CONNECTED)
+        val docRef = db.collection("live_data").document(deviceId)
+        val listener = docRef.addSnapshotListener { snapshot, error ->
+            if (error != null) {
+                close(error)
                 return@addSnapshotListener
             }
-            val obj = snap?.toObject(LiveDataSnapshot::class.java) ?: LiveDataSnapshot()
-            trySend(obj)
-            val fromCache = snap?.metadata?.isFromCache == true
-            if (fromCache) {
-                connectionState.tryEmit(ConnectionState.NOT_CONNECTED)
+            if (snapshot != null && snapshot.exists()) {
+                snapshot.toObject(LiveDataSnapshot::class.java)?.let { 
+                    trySend(it).isSuccess
+                    connectionState.tryEmit(ConnectionState.CONNECTED)
+                }
             } else {
-                // If we get any data from server (not cache), we're connected
-                connectionState.tryEmit(ConnectionState.CONNECTED)
+                trySend(LiveDataSnapshot())
+                connectionState.tryEmit(ConnectionState.NOT_CONNECTED)
             }
         }
-        awaitClose { reg.remove() }
+        awaitClose { listener.remove() }
     }
 
     fun sensorLogs(): Flow<List<SensorLog>> = callbackFlow {
-        val reg = logsCollection().orderBy("timestamp").limitToLast(500).addSnapshotListener { qs, err ->
-            if (err != null) {
+        val collectionRef = db.collection("sensor_logs").document(deviceId).collection("logs")
+        val listener = collectionRef.orderBy("timestamp").limitToLast(500).addSnapshotListener { snapshot, error ->
+            if (error != null) {
+                close(error)
+                return@addSnapshotListener
+            }
+            if (snapshot != null) {
+                val items = snapshot.documents.mapNotNull { it.toObject(SensorLog::class.java) }
+                trySend(items).isSuccess
+                connectionState.tryEmit(ConnectionState.CONNECTED)
+            } else {
                 trySend(emptyList())
                 connectionState.tryEmit(ConnectionState.NOT_CONNECTED)
-                return@addSnapshotListener
-            }
-            val items = qs?.documents?.mapNotNull { it.toObject(SensorLog::class.java) } ?: emptyList()
-            trySend(items)
-            val fromCache = qs?.metadata?.isFromCache == true
-            if (fromCache) {
-                connectionState.tryEmit(ConnectionState.NOT_CONNECTED)
-            } else {
-                connectionState.tryEmit(ConnectionState.CONNECTED)
             }
         }
-        awaitClose { reg.remove() }
+        awaitClose { listener.remove() }
     }
 
-    suspend fun setControlMode(mode: ControlMode) {
-        controlDoc().set(ControlCommands(mode = mode)).addOnFailureListener {
-            Log.e(TAG, "setControlMode failed", it)
-        }
-    }
-
-    suspend fun setRelayOverrides(overrides: RelayStates) {
-        controlDoc().set(ControlCommands(mode = ControlMode.MANUAL, override = overrides)).addOnFailureListener {
-            Log.e(TAG, "setRelayOverrides failed", it)
-        }
-    }
-
-    // New APIs for per-actuator command_control schema
-    fun commandControl(): Flow<com.capstone.aquabell.data.model.CommandControl> = callbackFlow {
-        val reg = commandControlDoc().addSnapshotListener { snap, err ->
-            if (err != null) {
-                trySend(com.capstone.aquabell.data.model.CommandControl())
-                connectionState.tryEmit(ConnectionState.NOT_CONNECTED)
-                return@addSnapshotListener
-            }
-            val obj = snap?.toObject(com.capstone.aquabell.data.model.CommandControl::class.java)
-                ?: com.capstone.aquabell.data.model.CommandControl()
-            trySend(obj)
-            val fromCache = snap?.metadata?.isFromCache == true
-            if (fromCache) connectionState.tryEmit(ConnectionState.NOT_CONNECTED) else connectionState.tryEmit(ConnectionState.CONNECTED)
-        }
-        awaitClose { reg.remove() }
-    }
-
-    suspend fun setActuatorMode(actuator: String, mode: ControlMode) {
-        // Ensure document exists and merge nested maps
-        val payload = mapOf(
-            actuator to mapOf(
-                "mode" to mode.name
-            )
-        )
-        commandControlDoc()
-            .set(payload, com.google.firebase.firestore.SetOptions.merge())
-            .addOnFailureListener {
-                Log.e(TAG, "setActuatorMode failed for $actuator", it)
-            }
-    }
-
-    suspend fun setActuatorValueFirestore(actuator: String, value: Boolean) {
-        val payload = mapOf(
-            actuator to mapOf(
+    // RTDB Methods for actuator control - replaces Firestore control methods
+    suspend fun sendCommand(deviceId: String, actuator: String, isAuto: Boolean, value: Boolean) {
+        try {
+            val updates = mapOf(
+                "isAuto" to isAuto,
                 "value" to value
             )
-        )
-        commandControlDoc()
-            .set(payload, com.google.firebase.firestore.SetOptions.merge())
-            .addOnFailureListener {
-                Log.e(TAG, "setActuatorValueFirestore failed for $actuator", it)
+            rtdb.getReference("commands").child(deviceId).child(actuator).updateChildren(updates)
+                .addOnFailureListener { e ->
+                    Log.e(TAG, "Failed to send command for $actuator: ${e.message}")
+                }
+        } catch (e: Exception) {
+            Log.e(TAG, "Error sending command for $actuator", e)
+        }
+    }
+
+    fun observeActuatorState(deviceId: String, actuator: String, callback: (Boolean) -> Unit) {
+        val listener = object : ValueEventListener {
+            override fun onDataChange(snapshot: DataSnapshot) {
+                try {
+                    val state = snapshot.getValue(ActuatorState::class.java)
+                    val isOn = state?.value ?: false
+                    callback(isOn)
+                    connectionState.tryEmit(ConnectionState.CONNECTED)
+                } catch (e: Exception) {
+                    Log.e(TAG, "Error parsing actuator state for $actuator", e)
+                    callback(false)
+                }
             }
+
+            override fun onCancelled(error: DatabaseError) {
+                Log.e(TAG, "RTDB actuator state listener cancelled for $actuator: ${error.message}")
+                callback(false)
+                connectionState.tryEmit(ConnectionState.NOT_CONNECTED)
+            }
+        }
+        
+        rtdb.getReference("actuator_states").child(deviceId).child(actuator).addValueEventListener(listener)
     }
 
     suspend fun getCachedLiveData(): LiveDataSnapshot? {
@@ -229,7 +211,48 @@ class FirebaseRepository(
         }
     }
 
-    // RTDB Methods for actuator commands
+    // Legacy RTDB methods - kept for backward compatibility but deprecated
+    // Use sendCommand() and observeActuatorState() instead
+    
+    @Deprecated("Use sendCommand() instead")
+    suspend fun setActuatorState(actuator: String, isAuto: Boolean, value: Boolean) {
+        sendCommand(deviceId, actuator, isAuto, value)
+    }
+
+    @Deprecated("Use sendCommand() instead") 
+    suspend fun setActuatorAutoMode(actuator: String, isAuto: Boolean) {
+        // Get current value first, then update
+        try {
+            commandsRef().child(actuator).child("value").get().addOnSuccessListener { snapshot ->
+                val currentValue = snapshot.getValue(Boolean::class.java) ?: false
+                repoScope.launch {
+                    sendCommand(deviceId, actuator, isAuto, currentValue)
+                }
+            }
+        } catch (e: Exception) {
+            Log.e(TAG, "Error setting $actuator auto mode", e)
+        }
+    }
+
+    @Deprecated("Use sendCommand() instead")
+    suspend fun setActuatorValueRTDB(actuator: String, value: Boolean) {
+        // Get current isAuto first, then update
+        try {
+            commandsRef().child(actuator).child("isAuto").get().addOnSuccessListener { snapshot ->
+                val currentIsAuto = snapshot.getValue(Boolean::class.java) ?: true
+                repoScope.launch {
+                    sendCommand(deviceId, actuator, currentIsAuto, value)
+                }
+            }
+        } catch (e: Exception) {
+            Log.e(TAG, "Error setting $actuator value", e)
+        }
+    }
+
+    // ---------------------------------------------------------------------
+    // RTDB-backed flows kept for UI/ViewModel compatibility
+    // ---------------------------------------------------------------------
+
     fun actuatorCommands(): Flow<ActuatorCommands> = callbackFlow {
         val listener = object : ValueEventListener {
             override fun onDataChange(snapshot: DataSnapshot) {
@@ -249,49 +272,118 @@ class FirebaseRepository(
                 connectionState.tryEmit(ConnectionState.NOT_CONNECTED)
             }
         }
-        
+
         commandsRef().addValueEventListener(listener)
         awaitClose { commandsRef().removeEventListener(listener) }
     }
 
-    suspend fun setActuatorAutoMode(actuator: String, isAuto: Boolean) {
-        try {
-            commandsRef().child(actuator).child("isAuto").setValue(isAuto)
-                .addOnFailureListener { e ->
-                    Log.e(TAG, "Failed to set $actuator auto mode: ${e.message}")
+    fun actuatorStates(): Flow<ActuatorStates> = callbackFlow {
+        val listener = object : ValueEventListener {
+            override fun onDataChange(snapshot: DataSnapshot) {
+                try {
+                    val states = snapshot.getValue(ActuatorStates::class.java) ?: ActuatorStates()
+                    trySend(states)
+                    connectionState.tryEmit(ConnectionState.CONNECTED)
+                } catch (e: Exception) {
+                    Log.e(TAG, "Error parsing actuator states", e)
+                    trySend(ActuatorStates())
                 }
+            }
+
+            override fun onCancelled(error: DatabaseError) {
+                Log.e(TAG, "RTDB actuator states listener cancelled: ${error.message}")
+                trySend(ActuatorStates())
+                connectionState.tryEmit(ConnectionState.NOT_CONNECTED)
+            }
+        }
+
+        actuatorStatesRef().addValueEventListener(listener)
+        awaitClose { actuatorStatesRef().removeEventListener(listener) }
+    }
+
+    // ---------------------------------------------------------------------
+    // Compatibility shims for Firestore-era APIs used in UI
+    // These now write/read from RTDB under /commands and /actuator_states
+    // ---------------------------------------------------------------------
+
+    fun commandControl(): Flow<com.capstone.aquabell.data.model.CommandControl> = callbackFlow {
+        val listener = object : ValueEventListener {
+            override fun onDataChange(snapshot: DataSnapshot) {
+                try {
+                    val cmds = snapshot.getValue(ActuatorCommands::class.java) ?: ActuatorCommands()
+                    val mapped = com.capstone.aquabell.data.model.CommandControl(
+                        fan = ActuatorCommand(mode = if (cmds.fan.isAuto) ControlMode.AUTO else ControlMode.MANUAL, value = cmds.fan.value),
+                        light = ActuatorCommand(mode = if (cmds.light.isAuto) ControlMode.AUTO else ControlMode.MANUAL, value = cmds.light.value),
+                        pump = ActuatorCommand(mode = if (cmds.pump.isAuto) ControlMode.AUTO else ControlMode.MANUAL, value = cmds.pump.value),
+                        valve = ActuatorCommand(mode = if (cmds.valve.isAuto) ControlMode.AUTO else ControlMode.MANUAL, value = cmds.valve.value),
+                    )
+                    trySend(mapped)
+                    connectionState.tryEmit(ConnectionState.CONNECTED)
+                } catch (e: Exception) {
+                    Log.e(TAG, "Error mapping commandControl()", e)
+                    trySend(com.capstone.aquabell.data.model.CommandControl())
+                }
+            }
+
+            override fun onCancelled(error: DatabaseError) {
+                Log.e(TAG, "RTDB commandControl listener cancelled: ${error.message}")
+                trySend(com.capstone.aquabell.data.model.CommandControl())
+                connectionState.tryEmit(ConnectionState.NOT_CONNECTED)
+            }
+        }
+
+        commandsRef().addValueEventListener(listener)
+        awaitClose { commandsRef().removeEventListener(listener) }
+    }
+
+    suspend fun setControlMode(mode: ControlMode) {
+        try {
+            val isAuto = mode == ControlMode.AUTO
+            val updates = mapOf(
+                "fan/isAuto" to isAuto,
+                "light/isAuto" to isAuto,
+                "pump/isAuto" to isAuto,
+                "valve/isAuto" to isAuto,
+            )
+            commandsRef().updateChildren(updates)
+                .addOnFailureListener { e -> Log.e(TAG, "setControlMode failed: ${e.message}") }
         } catch (e: Exception) {
-            Log.e(TAG, "Error setting $actuator auto mode", e)
+            Log.e(TAG, "setControlMode error", e)
         }
     }
 
-    suspend fun setActuatorValueRTDB(actuator: String, value: Boolean) {
-        try {
-            commandsRef().child(actuator).child("value").setValue(value)
-                .addOnFailureListener { e ->
-                    Log.e(TAG, "Failed to set $actuator value: ${e.message}")
-                }
-        } catch (e: Exception) {
-            Log.e(TAG, "Error setting $actuator value", e)
-        }
-    }
-
-    suspend fun setActuatorState(actuator: String, isAuto: Boolean, value: Boolean) {
+    suspend fun setRelayOverrides(overrides: RelayStates) {
         try {
             val updates = mapOf(
-                "isAuto" to isAuto,
-                "value" to value
+                "fan/isAuto" to false, "fan/value" to overrides.fan,
+                "light/isAuto" to false, "light/value" to overrides.light,
+                "pump/isAuto" to false, "pump/value" to overrides.waterPump,
+                "valve/isAuto" to false, "valve/value" to overrides.valve,
             )
-            commandsRef().child(actuator).updateChildren(updates)
-                .addOnFailureListener { e ->
-                    Log.e(TAG, "Failed to set $actuator state: ${e.message}")
-                }
+            commandsRef().updateChildren(updates)
+                .addOnFailureListener { e -> Log.e(TAG, "setRelayOverrides failed: ${e.message}") }
         } catch (e: Exception) {
-            Log.e(TAG, "Error setting $actuator state", e)
+            Log.e(TAG, "setRelayOverrides error", e)
         }
     }
 
-    suspend fun toggleActuatorAutoMode(actuator: String) {
+    suspend fun setActuatorMode(actuator: String, mode: ControlMode) {
+        try {
+            commandsRef().child(actuator).child("value").get().addOnSuccessListener { snap ->
+                val currentValue = snap.getValue(Boolean::class.java) ?: false
+                repoScope.launch {
+                    sendCommand(deviceId, actuator, mode == ControlMode.AUTO, currentValue)
+                }
+            }.addOnFailureListener { e ->
+                Log.e(TAG, "setActuatorMode failed for $actuator: ${e.message}")
+            }
+        } catch (e: Exception) {
+            Log.e(TAG, "setActuatorMode error for $actuator", e)
+        }
+    }
+
+    // ViewModel compatibility: toggle helpers
+    fun toggleActuatorAutoMode(actuator: String) {
         try {
             commandsRef().child(actuator).child("isAuto").get().addOnSuccessListener { snapshot ->
                 val currentIsAuto = snapshot.getValue(Boolean::class.java) ?: true
@@ -308,8 +400,13 @@ class FirebaseRepository(
         try {
             commandsRef().child(actuator).child("value").get().addOnSuccessListener { snapshot ->
                 val currentValue = snapshot.getValue(Boolean::class.java) ?: false
-                repoScope.launch {
-                    setActuatorValueRTDB(actuator, !currentValue)
+                commandsRef().child(actuator).child("isAuto").get().addOnSuccessListener { isAutoSnapshot ->
+                    val currentIsAuto = isAutoSnapshot.getValue(Boolean::class.java) ?: true
+                    repoScope.launch {
+                        sendCommand(deviceId, actuator, currentIsAuto, !currentValue)
+                    }
+                }.addOnFailureListener { e ->
+                    Log.e(TAG, "Failed to get isAuto for $actuator: ${e.message}")
                 }
             }.addOnFailureListener { e ->
                 Log.e(TAG, "Failed to toggle $actuator value: ${e.message}")
