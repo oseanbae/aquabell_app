@@ -857,18 +857,12 @@ private fun PerActuatorControlGrid(
 
     @Composable
     fun ActuatorTile(tile: Tile, modifier: Modifier = Modifier) {
-        // Optimistic local UI state that mirrors Firestore but updates immediately on user action
-        var localMode by remember(tile.key) { mutableStateOf(tile.mode) }
-        var localActive by remember(tile.key) { mutableStateOf(tile.active) }
+        // Local isAuto state with Firebase as source of truth
+        var isAuto by remember(tile.key) { mutableStateOf(tile.mode == ControlMode.AUTO) }
+        LaunchedEffect(tile.mode) { isAuto = tile.mode == ControlMode.AUTO }
 
-        // Sync local state whenever Firestore command changes for this tile
-        LaunchedEffect(tile.mode, tile.active) {
-            localMode = tile.mode
-            localActive = tile.active
-        }
-
-        val enabled = localMode == ControlMode.MANUAL
-        val isActive = localActive && enabled
+        val enabled = !isAuto
+        val isActive = tile.active && enabled
         val border = if (isActive) tile.accent else outline
         val enabledContainer = if (isActive) tile.accent.copy(alpha = 0.18f) else MaterialTheme.colorScheme.surface
         val container = if (enabled) enabledContainer else enabledContainer.copy(alpha = 0.6f)
@@ -898,17 +892,18 @@ private fun PerActuatorControlGrid(
                     )
                     Row(verticalAlignment = Alignment.CenterVertically) {
                         Text(
-                            text = if (localMode == ControlMode.AUTO) "AUTO" else "MANUAL",
+                            text = if (isAuto) "AUTO" else "MANUAL",
                             style = MaterialTheme.typography.labelSmall,
-                            color = if (localMode == ControlMode.AUTO) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.secondary
+                            color = if (isAuto) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.secondary
                         )
                         Spacer(Modifier.width(6.dp))
                         Switch(
-                            checked = localMode == ControlMode.MANUAL,
-                            onCheckedChange = { _ ->
-                                // Toggle locally for instant feedback
-                                localMode = if (localMode == ControlMode.AUTO) ControlMode.MANUAL else ControlMode.AUTO
-                                tile.onToggleMode()
+                            checked = isAuto,
+                            onCheckedChange = { checked ->
+                                // Optimistic update, then push to Firebase
+                                isAuto = checked
+                                val next = if (checked) ControlMode.AUTO else ControlMode.MANUAL
+                                onSetActuatorMode(tile.key, next)
                             },
                             modifier = Modifier.scale(0.9f),
                             colors = SwitchDefaults.colors(
@@ -933,9 +928,7 @@ private fun PerActuatorControlGrid(
                                 if (isActive) tile.accent.copy(alpha = 0.12f)
                                 else MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f)
                             )
-                            .clickable(enabled = enabled) {
-                                // Update UI instantly, then write to Firestore
-                                localActive = !localActive
+                                .clickable(enabled = enabled) {
                                 tile.onToggleValue()
                             },
                         contentAlignment = Alignment.Center
@@ -952,14 +945,14 @@ private fun PerActuatorControlGrid(
                     Spacer(Modifier.height(8.dp))
                     
                     Text(
-                        text = if (localActive) "On" else "Off",
+                        text = if (tile.active) "On" else "Off",
                         style = MaterialTheme.typography.labelLarge.copy(fontWeight = FontWeight.Medium),
                         color = if (isActive) tile.accent else MaterialTheme.colorScheme.onSurface.copy(alpha = 0.7f)
                     )
                 }
 
                 // Helper text for clarity
-                val helper = if (localMode == ControlMode.AUTO) "Automatic control is active. Switch to Manual to override." else "Manual control is active."
+                    val helper = if (isAuto) "Automatic control is active. Switch to Manual to override." else "Manual control is active."
                 Text(
                     text = helper,
                     style = MaterialTheme.typography.bodySmall,
