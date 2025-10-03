@@ -100,8 +100,8 @@ fun DashboardScreen(
                 ActuatorControlCard(
                     title = "Fan",
                     state = fanState,
-                    onToggleAutoMode = { isChecked -> viewModel.setActuatorAutoMode("fan", isChecked) },
-                    onToggleValue = { isChecked -> viewModel.setActuatorValue("fan", isChecked) }
+                    onToggleAutoMode = { isChecked -> viewModel.updateActuatorAuto("fan", isChecked) },
+                    onToggleValue = { isChecked -> viewModel.updateActuatorValue("fan", isChecked) }
                 )
             }
 
@@ -109,8 +109,8 @@ fun DashboardScreen(
                 ActuatorControlCard(
                     title = "Light",
                     state = lightState,
-                    onToggleAutoMode = { isChecked -> viewModel.setActuatorAutoMode("light", isChecked) },
-                    onToggleValue = { isChecked -> viewModel.setActuatorValue("light", isChecked) }
+                    onToggleAutoMode = { isChecked -> viewModel.updateActuatorAuto("light", isChecked) },
+                    onToggleValue = { isChecked -> viewModel.updateActuatorValue("light", isChecked) }
                 )
             }
 
@@ -118,8 +118,8 @@ fun DashboardScreen(
                 ActuatorControlCard(
                     title = "Pump",
                     state = pumpState,
-                    onToggleAutoMode = { isChecked -> viewModel.setActuatorAutoMode("pump", isChecked) },
-                    onToggleValue = { isChecked -> viewModel.setActuatorValue("pump", isChecked) }
+                    onToggleAutoMode = { isChecked -> viewModel.updateActuatorAuto("pump", isChecked) },
+                    onToggleValue = { isChecked -> viewModel.updateActuatorValue("pump", isChecked) }
                 )
             }
 
@@ -127,8 +127,8 @@ fun DashboardScreen(
                 ActuatorControlCard(
                     title = "Valve",
                     state = valveState,
-                    onToggleAutoMode = { isChecked -> viewModel.setActuatorAutoMode("valve", isChecked) },
-                    onToggleValue = { isChecked -> viewModel.setActuatorValue("valve", isChecked) }
+                    onToggleAutoMode = { isChecked -> viewModel.updateActuatorAuto("valve", isChecked) },
+                    onToggleValue = { isChecked -> viewModel.updateActuatorValue("valve", isChecked) }
                 )
             }
 

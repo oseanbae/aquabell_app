@@ -26,6 +26,7 @@ import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.suspendCancellableCoroutine
 import com.google.android.gms.tasks.Task
+import com.google.firebase.auth.AuthResult
 import kotlin.coroutines.resume
 import kotlin.coroutines.resumeWithException
 
@@ -45,6 +46,12 @@ class FirebaseRepository(
     private val appContext: Context = FirebaseApp.getInstance().applicationContext
     private val connectivityManager: ConnectivityManager = appContext.getSystemService(Context.CONNECTIVITY_SERVICE) as ConnectivityManager
     private val repoScope: CoroutineScope = CoroutineScope(Dispatchers.IO)
+    private val currentStates: MutableMap<String, ActuatorState> = mutableMapOf(
+        "fan" to ActuatorState(),
+        "light" to ActuatorState(),
+        "pump" to ActuatorState(),
+        "valve" to ActuatorState()
+    )
 
     init {
         try {
@@ -162,6 +169,7 @@ class FirebaseRepository(
         )
         val ref = rtdb.getReference("commands").child(deviceId).child(actuator)
         try {
+            ensureAuth()
             ref.updateChildrenAwait(updates)
             Log.i(TAG, "sendCommand success → /commands/$deviceId/$actuator {isAuto=$isAuto, value=$value}")
         } catch (t: Throwable) {
@@ -266,6 +274,11 @@ class FirebaseRepository(
             override fun onDataChange(snapshot: DataSnapshot) {
                 try {
                     val commands = snapshot.getValue(ActuatorCommands::class.java) ?: ActuatorCommands()
+                    // Keep local currentStates in sync with /commands
+                    currentStates["fan"] = commands.fan
+                    currentStates["light"] = commands.light
+                    currentStates["pump"] = commands.pump
+                    currentStates["valve"] = commands.valve
                     trySend(commands)
                     connectionState.tryEmit(ConnectionState.CONNECTED)
                 } catch (e: Exception) {
@@ -283,6 +296,25 @@ class FirebaseRepository(
 
         commandsRef().addValueEventListener(listener)
         awaitClose { commandsRef().removeEventListener(listener) }
+    }
+
+    // Public write APIs that accept explicit values from UI, no stale reads
+    fun updateActuatorValue(actuator: String, value: Boolean) {
+        val current = currentStates[actuator] ?: ActuatorState()
+        repoScope.launch {
+            try {
+                sendCommand(deviceId, actuator, current.isAuto, value)
+            } catch (_: Throwable) { }
+        }
+    }
+
+    fun updateActuatorAuto(actuator: String, isAuto: Boolean) {
+        val current = currentStates[actuator] ?: ActuatorState()
+        repoScope.launch {
+            try {
+                sendCommand(deviceId, actuator, isAuto, current.value)
+            } catch (_: Throwable) { }
+        }
     }
 
     fun actuatorStates(): Flow<ActuatorStates> = callbackFlow {
@@ -421,23 +453,53 @@ class FirebaseRepository(
     private suspend fun <T> Task<T>.awaitTask(): T = suspendCancellableCoroutine { cont ->
         this.addOnCompleteListener { task ->
             if (task.isSuccessful) {
-                cont.resume(task.result!!)
+                @Suppress("UNCHECKED_CAST")
+                val result: T? = task.result as T?
+                if (result != null || task.result == null) {
+                    // For Void tasks, result is null; resume with Unit cast if caller expects Unit
+                    if (result == null) {
+                        try {
+                            @Suppress("UNCHECKED_CAST")
+                            cont.resume(Unit as T)
+                        } catch (_: Throwable) {
+                            cont.resumeWithException(IllegalStateException("Task result was null"))
+                        }
+                    } else {
+                        cont.resume(result)
+                    }
+                }
             } else {
                 val ex = task.exception ?: RuntimeException("Task failed without exception")
                 cont.resumeWithException(ex)
             }
         }
-        // No cancellation mechanism available for Firebase Task; best effort only
+        // No cancellation bridge for Firebase Task
     }
 
-    private suspend fun DatabaseReference.updateChildrenAwait(updates: Map<String, Any?>): Void? = suspendCancellableCoroutine { cont ->
+    private suspend fun DatabaseReference.updateChildrenAwait(updates: Map<String, Any?>) = suspendCancellableCoroutine<Unit> { cont ->
         this.updateChildren(updates).addOnCompleteListener { task ->
             if (task.isSuccessful) {
-                cont.resume(task.result)
+                cont.resume(Unit)
             } else {
                 val ex = task.exception ?: RuntimeException("updateChildren failed without exception")
                 cont.resumeWithException(ex)
             }
         }
+    }
+
+    private suspend fun ensureAuth() {
+        if (auth.currentUser != null) return
+        try {
+            signInAnonymouslyAwait()
+            Log.i(TAG, "FirebaseAuth anonymous sign-in success")
+        } catch (t: Throwable) {
+            Log.e(TAG, "FirebaseAuth anonymous sign-in failed: ${t.message}", t)
+            throw t
+        }
+    }
+
+    private suspend fun signInAnonymouslyAwait(): AuthResult {
+        val task = auth.signInAnonymously()
+        return task.awaitTask()
     }
 }

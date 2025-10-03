@@ -110,33 +110,13 @@ class AquabellViewModel(
             initialValue = ActuatorState()
         )
 
-    // Actuator control functions
-    fun setActuatorAutoMode(actuator: String, isAuto: Boolean) {
-        viewModelScope.launch {
-            val currentValue = when (actuator) {
-                "fan" -> actuatorStates.value.fan.value
-                "light" -> actuatorStates.value.light.value
-                "pump" -> actuatorStates.value.pump.value
-                "valve" -> actuatorStates.value.valve.value
-                else -> false
-            }
-            repository.sendCommand(actuator, isAuto, currentValue)
-        }
+    // Actuator control functions - delegate directly to repository explicit setters
+    fun updateActuatorAuto(actuator: String, isAuto: Boolean) {
+        repository.updateActuatorAuto(actuator, isAuto)
     }
 
-    fun setActuatorValue(actuator: String, value: Boolean) {
-        viewModelScope.launch {
-            val currentIsAuto = when (actuator) {
-                "fan" -> actuatorStates.value.fan.isAuto
-                "light" -> actuatorStates.value.light.isAuto
-                "pump" -> actuatorStates.value.pump.isAuto
-                "valve" -> actuatorStates.value.valve.isAuto
-                else -> true
-            }
-            if (!currentIsAuto) {
-                repository.sendCommand(actuator, false, value)
-            }
-        }
+    fun updateActuatorValue(actuator: String, value: Boolean) {
+        repository.updateActuatorValue(actuator, value)
     }
 
     // Force refresh data
