@@ -46,6 +46,7 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
@@ -75,7 +76,6 @@ import kotlinx.coroutines.launch
 @Composable
 fun HomeScreen(modifier: Modifier = Modifier) {
     val repo = remember { FirebaseRepository() }
-    var autoModeEnabled by remember { mutableStateOf(true) }
     var selectedNavIndex by remember { mutableIntStateOf(1) } // center is Home
     var live by remember { mutableStateOf<com.capstone.aquabell.data.model.LiveDataSnapshot?>(null) }
     var command by remember { mutableStateOf(com.capstone.aquabell.data.model.CommandControl()) }
@@ -116,13 +116,6 @@ fun HomeScreen(modifier: Modifier = Modifier) {
                 0 -> AnalyticsScreen(modifier = Modifier.padding(inner))
                 1 -> HomeContent(
                     modifier = Modifier.padding(inner),
-                    autoModeEnabled = autoModeEnabled,
-                    onToggleAuto = { enabled ->
-                        autoModeEnabled = enabled
-                        val mode = if (enabled) ControlMode.AUTO else ControlMode.MANUAL
-                        // fire-and-forget; repository handles failure logging
-                        CoroutineScope(Dispatchers.IO).launch { repo.setControlMode(mode) }
-                    },
                     live = live ?: offline,
                     command = command,
                     connectionState = connectionState,
@@ -147,8 +140,6 @@ fun HomeScreen(modifier: Modifier = Modifier) {
 @Composable
 private fun HomeContent(
     modifier: Modifier = Modifier,
-    autoModeEnabled: Boolean,
-    onToggleAuto: (Boolean) -> Unit,
     live: com.capstone.aquabell.data.model.LiveDataSnapshot?,
     command: com.capstone.aquabell.data.model.CommandControl,
     connectionState: FirebaseRepository.ConnectionState,
@@ -170,7 +161,7 @@ private fun HomeContent(
         SectionHeader(title = "Dashboard")
         DashboardGrid(live)
         WaterLevelModule(live)
-        ControlHeader(autoModeEnabled = autoModeEnabled, onToggleAuto = onToggleAuto)
+        ControlHeader()
         PerActuatorControlGrid(
             command = command,
             onSetActuatorMode = onSetActuatorMode,
@@ -585,76 +576,28 @@ private fun MetricCard(
 }
 
 @Composable
-private fun ControlHeader(autoModeEnabled: Boolean, onToggleAuto: (Boolean) -> Unit) {
+private fun ControlHeader() {
     Column(
         modifier = Modifier
             .fillMaxWidth()
             .padding(top = 8.dp, bottom = 12.dp)
     ) {
-        Row(
-            modifier = Modifier.fillMaxWidth(),
-            verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.SpaceBetween
-        ) {
-            Text(
-                text = "Control",
-                style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold)
-            )
-            Row(verticalAlignment = Alignment.CenterVertically) {
-                Text(
-                    text = if (autoModeEnabled) "Auto Mode" else "Manual Mode",
-                    style = MaterialTheme.typography.bodyMedium,
-                    color = if (autoModeEnabled) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.secondary
-                )
-                Spacer(Modifier.width(8.dp))
-                Switch(
-                    checked = autoModeEnabled,
-                    onCheckedChange = onToggleAuto,
-                    colors = SwitchDefaults.colors(
-                        checkedThumbColor = MaterialTheme.colorScheme.onPrimary,
-                        checkedTrackColor = MaterialTheme.colorScheme.primary,
-                    )
-                )
-            }
-        }
-        
-        // Mode description
         Text(
-            text = if (autoModeEnabled) {
-                "System automatically controls all devices based on sensor readings"
-            } else {
-                "You can manually control each device using the buttons below"
-            },
-            style = MaterialTheme.typography.bodySmall,
-            color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.7f),
-            modifier = Modifier.padding(top = 4.dp)
+            text = "Control Panel",
+            style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold)
         )
-        
-        // Mode status indicator
-        Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(top = 8.dp),
-            verticalAlignment = Alignment.CenterVertically
-        ) {
-            Box(
-                modifier = Modifier
-                    .size(8.dp)
-                    .clip(CircleShape)
-                    .background(
-                        if (autoModeEnabled) MaterialTheme.colorScheme.primary 
-                        else MaterialTheme.colorScheme.secondary
-                    )
-            )
-            Spacer(Modifier.width(8.dp))
-            Text(
-                text = if (autoModeEnabled) "Auto Mode Active" else "Manual Mode Active",
-                style = MaterialTheme.typography.labelMedium,
-                color = if (autoModeEnabled) MaterialTheme.colorScheme.primary 
-                        else MaterialTheme.colorScheme.secondary,
-                fontWeight = FontWeight.Medium
-            )
-        }
+        Spacer(Modifier.height(4.dp))
+        Text(
+            text = "Manage each actuator below. Switch between Auto and Manual modes per device.",
+            style = MaterialTheme.typography.bodySmall,
+            color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.7f)
+        )
+        Spacer(Modifier.height(6.dp))
+        Text(
+            text = "Changes update in real time.",
+            style = MaterialTheme.typography.labelSmall,
+            color = MaterialTheme.colorScheme.secondary
+        )
     }
 }
 

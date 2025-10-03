@@ -44,8 +44,8 @@ class AquabellViewModel(
             initialValue = ActuatorStates()
         )
 
-    // Individual actuator states for easy access
-    val fanState: StateFlow<ActuatorState> = actuatorCommands
+    // Individual actuator states for UI display - use confirmed states from ESP32
+    val fanState: StateFlow<ActuatorState> = actuatorStates
         .map { it.fan }
         .stateIn(
             scope = viewModelScope,
@@ -53,7 +53,7 @@ class AquabellViewModel(
             initialValue = ActuatorState()
         )
 
-    val lightState: StateFlow<ActuatorState> = actuatorCommands
+    val lightState: StateFlow<ActuatorState> = actuatorStates
         .map { it.light }
         .stateIn(
             scope = viewModelScope,
@@ -61,7 +61,7 @@ class AquabellViewModel(
             initialValue = ActuatorState()
         )
 
-    val pumpState: StateFlow<ActuatorState> = actuatorCommands
+    val pumpState: StateFlow<ActuatorState> = actuatorStates
         .map { it.pump }
         .stateIn(
             scope = viewModelScope,
@@ -69,7 +69,7 @@ class AquabellViewModel(
             initialValue = ActuatorState()
         )
 
-    val valveState: StateFlow<ActuatorState> = actuatorCommands
+    val valveState: StateFlow<ActuatorState> = actuatorStates
         .map { it.valve }
         .stateIn(
             scope = viewModelScope,
@@ -121,21 +121,71 @@ class AquabellViewModel(
         repository.toggleActuatorValue(actuator)
     }
 
-    fun setActuatorAutoMode(actuator: String, isAuto: Boolean) {
+    // New helpers for direct RTDB updates via sendCommand()
+    fun updateActuatorAuto(actuator: String, isAuto: Boolean) {
         viewModelScope.launch {
-            repository.setActuatorAutoMode(actuator, isAuto)
+            // get current value from confirmed states when available; fallback to commands
+            val current = when (actuator) {
+                "fan" -> actuatorStates.value.fan.value
+                "light" -> actuatorStates.value.light.value
+                "pump" -> actuatorStates.value.pump.value
+                "valve" -> actuatorStates.value.valve.value
+                else -> false
+            }
+            repository.sendCommand(actuator, isAuto, current)
         }
     }
 
-    fun setActuatorValue(actuator: String, value: Boolean) {
+    fun updateActuatorValue(actuator: String, value: Boolean) {
         viewModelScope.launch {
-            repository.setActuatorValueRTDB(actuator, value)
+            val currentIsAuto = when (actuator) {
+                "fan" -> actuatorStates.value.fan.isAuto
+                "light" -> actuatorStates.value.light.isAuto
+                "pump" -> actuatorStates.value.pump.isAuto
+                "valve" -> actuatorStates.value.valve.isAuto
+                else -> true
+            }
+            repository.sendCommand(actuator, currentIsAuto, value)
         }
     }
 
+    // Back-compat convenience used by HomeScreen helpers
     fun setActuatorState(actuator: String, isAuto: Boolean, value: Boolean) {
         viewModelScope.launch {
-            repository.setActuatorState(actuator, isAuto, value)
+            repository.sendCommand(actuator, isAuto, value)
+        }
+    }
+
+    // New methods for direct actuator control
+    fun setActuatorAutoMode(actuator: String, isAuto: Boolean) {
+        android.util.Log.d("AquabellViewModel", "setActuatorAutoMode called: $actuator, isAuto: $isAuto")
+        viewModelScope.launch {
+            // Get current value from confirmed states
+            val currentValue = when (actuator) {
+                "fan" -> actuatorStates.value.fan.value
+                "light" -> actuatorStates.value.light.value
+                "pump" -> actuatorStates.value.pump.value
+                "valve" -> actuatorStates.value.valve.value
+                else -> false
+            }
+            android.util.Log.d("AquabellViewModel", "Current value for $actuator: $currentValue")
+            repository.sendCommand(actuator, isAuto, currentValue)
+        }
+    }
+
+    fun sendCommand(actuator: String, value: Boolean) {
+        android.util.Log.d("AquabellViewModel", "sendCommand called: $actuator, value: $value")
+        viewModelScope.launch {
+            // Get current isAuto from confirmed states
+            val currentIsAuto = when (actuator) {
+                "fan" -> actuatorStates.value.fan.isAuto
+                "light" -> actuatorStates.value.light.isAuto
+                "pump" -> actuatorStates.value.pump.isAuto
+                "valve" -> actuatorStates.value.valve.isAuto
+                else -> true
+            }
+            android.util.Log.d("AquabellViewModel", "Current isAuto for $actuator: $currentIsAuto")
+            repository.sendCommand(actuator, currentIsAuto, value)
         }
     }
 

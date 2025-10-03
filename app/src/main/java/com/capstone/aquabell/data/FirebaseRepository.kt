@@ -65,6 +65,9 @@ class FirebaseRepository(
             }
         }
 
+        // Initialize actuator_states from commands on startup
+        initializeActuatorStatesFromCommands()
+
         // Monitor network and update state proactively
         registerNetworkCallback()
     }
@@ -96,6 +99,41 @@ class FirebaseRepository(
             Log.w(TAG, "Failed to register network callback: ${t.message}")
             // Fallback: set initial state based on current connectivity
             if (!hasInternet()) connectionState.tryEmit(ConnectionState.NOT_CONNECTED)
+        }
+    }
+
+    private fun initializeActuatorStatesFromCommands() {
+        repoScope.launch {
+            try {
+                // Read current commands and initialize actuator_states
+                commandsRef().get().addOnSuccessListener { snapshot ->
+                    val commands = snapshot.getValue(ActuatorCommands::class.java) ?: ActuatorCommands()
+                    
+                    // Initialize actuator_states with current command values
+                    val updates = mapOf(
+                        "fan/isAuto" to commands.fan.isAuto,
+                        "fan/value" to commands.fan.value,
+                        "light/isAuto" to commands.light.isAuto,
+                        "light/value" to commands.light.value,
+                        "pump/isAuto" to commands.pump.isAuto,
+                        "pump/value" to commands.pump.value,
+                        "valve/isAuto" to commands.valve.isAuto,
+                        "valve/value" to commands.valve.value,
+                    )
+                    
+                    actuatorStatesRef().updateChildren(updates)
+                        .addOnSuccessListener {
+                            Log.d(TAG, "Initialized actuator_states from commands")
+                        }
+                        .addOnFailureListener { e ->
+                            Log.w(TAG, "Failed to initialize actuator_states: ${e.message}")
+                        }
+                }.addOnFailureListener { e ->
+                    Log.w(TAG, "Failed to read commands for initialization: ${e.message}")
+                }
+            } catch (e: Exception) {
+                Log.e(TAG, "Error initializing actuator states", e)
+            }
         }
     }
 
@@ -157,9 +195,22 @@ class FirebaseRepository(
                 .addOnFailureListener { e ->
                     Log.e(TAG, "Failed to send command for $actuator: ${e.message}")
                 }
+                .addOnSuccessListener {
+                    // Optimistic update: mirror command to actuator_states for immediate UI feedback
+                    // This ensures UI updates instantly even when ESP32 is offline
+                    rtdb.getReference("actuator_states").child(deviceId).child(actuator).updateChildren(updates)
+                        .addOnFailureListener { e ->
+                            Log.w(TAG, "Failed optimistic update for $actuator: ${e.message}")
+                        }
+                }
         } catch (e: Exception) {
             Log.e(TAG, "Error sending command for $actuator", e)
         }
+    }
+
+    // Convenience overload using repository deviceId
+    suspend fun sendCommand(actuator: String, isAuto: Boolean, value: Boolean) {
+        sendCommand(deviceId, actuator, isAuto, value)
     }
 
     fun observeActuatorState(deviceId: String, actuator: String, callback: (Boolean) -> Unit) {
@@ -387,7 +438,15 @@ class FirebaseRepository(
         try {
             commandsRef().child(actuator).child("isAuto").get().addOnSuccessListener { snapshot ->
                 val currentIsAuto = snapshot.getValue(Boolean::class.java) ?: true
-                commandsRef().child(actuator).child("isAuto").setValue(!currentIsAuto)
+                val newIsAuto = !currentIsAuto
+                commandsRef().child(actuator).child("isAuto").setValue(newIsAuto)
+                    .addOnSuccessListener {
+                        // Optimistic update: mirror to actuator_states
+                        actuatorStatesRef().child(actuator).child("isAuto").setValue(newIsAuto)
+                            .addOnFailureListener { e ->
+                                Log.w(TAG, "Failed optimistic update for $actuator isAuto: ${e.message}")
+                            }
+                    }
             }.addOnFailureListener { e ->
                 Log.e(TAG, "Failed to toggle $actuator auto mode: ${e.message}")
             }
@@ -400,14 +459,15 @@ class FirebaseRepository(
         try {
             commandsRef().child(actuator).child("value").get().addOnSuccessListener { snapshot ->
                 val currentValue = snapshot.getValue(Boolean::class.java) ?: false
-                commandsRef().child(actuator).child("isAuto").get().addOnSuccessListener { isAutoSnapshot ->
-                    val currentIsAuto = isAutoSnapshot.getValue(Boolean::class.java) ?: true
-                    repoScope.launch {
-                        sendCommand(deviceId, actuator, currentIsAuto, !currentValue)
+                val newValue = !currentValue
+                commandsRef().child(actuator).child("value").setValue(newValue)
+                    .addOnSuccessListener {
+                        // Optimistic update: mirror to actuator_states
+                        actuatorStatesRef().child(actuator).child("value").setValue(newValue)
+                            .addOnFailureListener { e ->
+                                Log.w(TAG, "Failed optimistic update for $actuator value: ${e.message}")
+                            }
                     }
-                }.addOnFailureListener { e ->
-                    Log.e(TAG, "Failed to get isAuto for $actuator: ${e.message}")
-                }
             }.addOnFailureListener { e ->
                 Log.e(TAG, "Failed to toggle $actuator value: ${e.message}")
             }
