@@ -72,35 +72,18 @@ import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
+import androidx.lifecycle.viewmodel.compose.viewModel
+import com.capstone.aquabell.ui.viewmodel.HomeViewModel
 
 @Composable
 fun HomeScreen(modifier: Modifier = Modifier) {
-    val repo = remember { FirebaseRepository() }
+    val vm: HomeViewModel = viewModel()
     var selectedNavIndex by remember { mutableIntStateOf(1) } // center is Home
-    var live by remember { mutableStateOf<com.capstone.aquabell.data.model.LiveDataSnapshot?>(null) }
-    var command by remember { mutableStateOf(com.capstone.aquabell.data.model.CommandControl()) }
-    var offline by remember { mutableStateOf<com.capstone.aquabell.data.model.LiveDataSnapshot?>(null) }
-    var connectionState by remember { mutableStateOf(FirebaseRepository.ConnectionState.CONNECTING) }
-    var isRefreshing by remember { mutableStateOf(false) }
-
-    LaunchedEffect(Unit) {
-        // Warm cached snapshot for offline state
-        offline = repo.getCachedLiveData()
-        repo.connectionState.collectLatest { connectionState = it }
-        repo.liveData().collectLatest { live = it }
-        repo.commandControl().collectLatest { command = it }
-    }
-
-    fun onRefresh() {
-        isRefreshing = true
-        CoroutineScope(Dispatchers.IO).launch {
-            try {
-                repo.forceRefresh()
-            } finally {
-                isRefreshing = false
-            }
-        }
-    }
+    val live by vm.live.collectAsState()
+    val command by vm.command.collectAsState()
+    val offline by vm.offlineCache.collectAsState()
+    val connectionState by vm.connectionState.collectAsState()
+    val isRefreshing by vm.isRefreshing.collectAsState()
 
     AquabellTheme {
         Scaffold(
@@ -120,16 +103,10 @@ fun HomeScreen(modifier: Modifier = Modifier) {
                     command = command,
                     connectionState = connectionState,
                     isRefreshing = isRefreshing,
-                    onRefresh = { onRefresh() },
-                    onOverride = { overrides ->
-                        CoroutineScope(Dispatchers.IO).launch { repo.setRelayOverrides(overrides) }
-                    },
-                    onSetActuatorMode = { actuator, mode ->
-                        CoroutineScope(Dispatchers.IO).launch { repo.setActuatorMode(actuator, mode) }
-                    },
-                    onSetActuatorValue = { actuator, value ->
-                        CoroutineScope(Dispatchers.IO).launch { repo.setActuatorValueRTDB(actuator, value) }
-                    }
+                    onRefresh = { vm.refresh() },
+                    onOverride = { overrides -> vm.setRelayOverrides(overrides) },
+                    onSetActuatorMode = { actuator, mode -> vm.setActuatorMode(actuator, mode) },
+                    onSetActuatorValue = { actuator, value -> vm.setActuatorValue(actuator, value) }
                 )
                 else -> AlertsScreen(modifier = Modifier.padding(inner))
             }

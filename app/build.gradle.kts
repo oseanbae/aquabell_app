@@ -54,6 +54,7 @@ dependencies {
     implementation(libs.androidx.material3)
     implementation(libs.androidx.material.icons.core)
     implementation(libs.androidx.material.icons.extended)
+    implementation("androidx.lifecycle:lifecycle-viewmodel-compose:2.6.1")
     
     // Import the Firebase BoM (kept for future libs)
     implementation(platform("com.google.firebase:firebase-bom:34.1.0"))
