@@ -24,6 +24,10 @@ import android.net.NetworkCapabilities
 import com.google.firebase.FirebaseApp
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.suspendCancellableCoroutine
+import com.google.android.gms.tasks.Task
+import kotlin.coroutines.resume
+import kotlin.coroutines.resumeWithException
 
 class FirebaseRepository(
     private val db: FirebaseFirestore = FirebaseFirestore.getInstance(),
@@ -152,17 +156,17 @@ class FirebaseRepository(
 
     // RTDB Methods for actuator control - replaces Firestore control methods
     suspend fun sendCommand(deviceId: String, actuator: String, isAuto: Boolean, value: Boolean) {
+        val updates = mapOf(
+            "isAuto" to isAuto,
+            "value" to value
+        )
+        val ref = rtdb.getReference("commands").child(deviceId).child(actuator)
         try {
-            val updates = mapOf(
-                "isAuto" to isAuto,
-                "value" to value
-            )
-            rtdb.getReference("commands").child(deviceId).child(actuator).updateChildren(updates)
-                .addOnFailureListener { e ->
-                    Log.e(TAG, "Failed to send command for $actuator: ${e.message}")
-                }
-        } catch (e: Exception) {
-            Log.e(TAG, "Error sending command for $actuator", e)
+            ref.updateChildrenAwait(updates)
+            Log.i(TAG, "sendCommand success → /commands/$deviceId/$actuator {isAuto=$isAuto, value=$value}")
+        } catch (t: Throwable) {
+            Log.e(TAG, "sendCommand failed for $actuator: ${t.message}", t)
+            throw t
         }
     }
 
@@ -230,16 +234,13 @@ class FirebaseRepository(
 
     @Deprecated("Use sendCommand() instead") 
     suspend fun setActuatorAutoMode(actuator: String, isAuto: Boolean) {
-        // Get current value first, then update
         try {
-            commandsRef().child(actuator).child("value").get().addOnSuccessListener { snapshot ->
-                val currentValue = snapshot.getValue(Boolean::class.java) ?: false
-                repoScope.launch {
-                    sendCommand(deviceId, actuator, isAuto, currentValue)
-                }
-            }
+            val currentValueSnap = commandsRef().child(actuator).child("value").get().awaitTask()
+            val currentValue = currentValueSnap.getValue(Boolean::class.java) ?: false
+            sendCommand(deviceId, actuator, isAuto, currentValue)
         } catch (e: Exception) {
             Log.e(TAG, "Error setting $actuator auto mode", e)
+            throw e
         }
     }
 
@@ -247,14 +248,12 @@ class FirebaseRepository(
     suspend fun setActuatorValueRTDB(actuator: String, value: Boolean) {
         // Get current isAuto first, then update
         try {
-            commandsRef().child(actuator).child("isAuto").get().addOnSuccessListener { snapshot ->
-                val currentIsAuto = snapshot.getValue(Boolean::class.java) ?: true
-                repoScope.launch {
-                    sendCommand(deviceId, actuator, currentIsAuto, value)
-                }
-            }
+            val isAutoSnap = commandsRef().child(actuator).child("isAuto").get().awaitTask()
+            val currentIsAuto = isAutoSnap.getValue(Boolean::class.java) ?: true
+            sendCommand(deviceId, actuator, currentIsAuto, value)
         } catch (e: Exception) {
             Log.e(TAG, "Error setting $actuator value", e)
+            throw e
         }
     }
 
@@ -346,83 +345,99 @@ class FirebaseRepository(
     }
 
     suspend fun setControlMode(mode: ControlMode) {
+        val isAuto = mode == ControlMode.AUTO
+        val updates = mapOf(
+            "fan/isAuto" to isAuto,
+            "light/isAuto" to isAuto,
+            "pump/isAuto" to isAuto,
+            "valve/isAuto" to isAuto,
+        )
         try {
-            val isAuto = mode == ControlMode.AUTO
-            val updates = mapOf(
-                "fan/isAuto" to isAuto,
-                "light/isAuto" to isAuto,
-                "pump/isAuto" to isAuto,
-                "valve/isAuto" to isAuto,
-            )
-            commandsRef().updateChildren(updates)
-                .addOnFailureListener { e -> Log.e(TAG, "setControlMode failed: ${e.message}") }
+            commandsRef().updateChildrenAwait(updates)
+            Log.i(TAG, "setControlMode success → isAuto=$isAuto for all")
         } catch (e: Exception) {
-            Log.e(TAG, "setControlMode error", e)
+            Log.e(TAG, "setControlMode failed: ${e.message}", e)
+            throw e
         }
     }
 
     suspend fun setRelayOverrides(overrides: RelayStates) {
+        val updates = mapOf(
+            "fan/isAuto" to false, "fan/value" to overrides.fan,
+            "light/isAuto" to false, "light/value" to overrides.light,
+            "pump/isAuto" to false, "pump/value" to overrides.waterPump,
+            "valve/isAuto" to false, "valve/value" to overrides.valve,
+        )
         try {
-            val updates = mapOf(
-                "fan/isAuto" to false, "fan/value" to overrides.fan,
-                "light/isAuto" to false, "light/value" to overrides.light,
-                "pump/isAuto" to false, "pump/value" to overrides.waterPump,
-                "valve/isAuto" to false, "valve/value" to overrides.valve,
-            )
-            commandsRef().updateChildren(updates)
-                .addOnFailureListener { e -> Log.e(TAG, "setRelayOverrides failed: ${e.message}") }
+            commandsRef().updateChildrenAwait(updates)
+            Log.i(TAG, "setRelayOverrides success → $updates")
         } catch (e: Exception) {
-            Log.e(TAG, "setRelayOverrides error", e)
+            Log.e(TAG, "setRelayOverrides failed: ${e.message}", e)
+            throw e
         }
     }
 
     suspend fun setActuatorMode(actuator: String, mode: ControlMode) {
         try {
-            commandsRef().child(actuator).child("value").get().addOnSuccessListener { snap ->
-                val currentValue = snap.getValue(Boolean::class.java) ?: false
-                repoScope.launch {
-                    sendCommand(deviceId, actuator, mode == ControlMode.AUTO, currentValue)
-                }
-            }.addOnFailureListener { e ->
-                Log.e(TAG, "setActuatorMode failed for $actuator: ${e.message}")
-            }
+            val snap = commandsRef().child(actuator).child("value").get().awaitTask()
+            val currentValue = snap.getValue(Boolean::class.java) ?: false
+            sendCommand(deviceId, actuator, mode == ControlMode.AUTO, currentValue)
         } catch (e: Exception) {
             Log.e(TAG, "setActuatorMode error for $actuator", e)
+            throw e
         }
     }
 
     // ViewModel compatibility: toggle helpers
     fun toggleActuatorAutoMode(actuator: String) {
-        try {
-            // Read current command state, flip isAuto, preserve current value, and send
-            commandsRef().child(actuator).get().addOnSuccessListener { snapshot ->
+        repoScope.launch {
+            try {
+                val snapshot = commandsRef().child(actuator).get().awaitTask()
                 val cmd = snapshot.getValue(ActuatorState::class.java) ?: ActuatorState()
                 val newIsAuto = !cmd.isAuto
-                repoScope.launch {
-                    sendCommand(deviceId, actuator, newIsAuto, cmd.value)
-                }
-            }.addOnFailureListener { e ->
-                Log.e(TAG, "Failed to toggle $actuator auto mode: ${e.message}")
+                sendCommand(deviceId, actuator, newIsAuto, cmd.value)
+            } catch (e: Exception) {
+                Log.e(TAG, "Failed to toggle $actuator auto mode: ${e.message}", e)
             }
-        } catch (e: Exception) {
-            Log.e(TAG, "Error toggling $actuator auto mode", e)
         }
     }
 
     fun toggleActuatorValue(actuator: String) {
-        try {
-            // Read current command state, flip value, keep current isAuto, and send
-            commandsRef().child(actuator).get().addOnSuccessListener { snapshot ->
+        repoScope.launch {
+            try {
+                val snapshot = commandsRef().child(actuator).get().awaitTask()
                 val cmd = snapshot.getValue(ActuatorState::class.java) ?: ActuatorState()
                 val newValue = !cmd.value
-                repoScope.launch {
-                    sendCommand(deviceId, actuator, cmd.isAuto, newValue)
-                }
-            }.addOnFailureListener { e ->
-                Log.e(TAG, "Failed to toggle $actuator value: ${e.message}")
+                sendCommand(deviceId, actuator, cmd.isAuto, newValue)
+            } catch (e: Exception) {
+                Log.e(TAG, "Failed to toggle $actuator value: ${e.message}", e)
             }
-        } catch (e: Exception) {
-            Log.e(TAG, "Error toggling $actuator value", e)
+        }
+    }
+
+    // ---------------------------------------------------------------------
+    // Tasks bridging helpers
+    // ---------------------------------------------------------------------
+    private suspend fun <T> Task<T>.awaitTask(): T = suspendCancellableCoroutine { cont ->
+        this.addOnCompleteListener { task ->
+            if (task.isSuccessful) {
+                cont.resume(task.result!!)
+            } else {
+                val ex = task.exception ?: RuntimeException("Task failed without exception")
+                cont.resumeWithException(ex)
+            }
+        }
+        // No cancellation mechanism available for Firebase Task; best effort only
+    }
+
+    private suspend fun DatabaseReference.updateChildrenAwait(updates: Map<String, Any?>): Void? = suspendCancellableCoroutine { cont ->
+        this.updateChildren(updates).addOnCompleteListener { task ->
+            if (task.isSuccessful) {
+                cont.resume(task.result)
+            } else {
+                val ex = task.exception ?: RuntimeException("updateChildren failed without exception")
+                cont.resumeWithException(ex)
+            }
         }
     }
 }
