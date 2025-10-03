@@ -13,8 +13,8 @@ import com.capstone.aquabell.data.model.ActuatorState
 fun ActuatorControlCard(
     title: String,
     state: ActuatorState,
-    onToggleAutoMode: () -> Unit,
-    onToggleValue: () -> Unit,
+    onToggleAutoMode: (Boolean) -> Unit,
+    onToggleValue: (Boolean) -> Unit,
     modifier: Modifier = Modifier
 ) {
     Card(
@@ -45,7 +45,7 @@ fun ActuatorControlCard(
                     )
                     Switch(
                         checked = state.isAuto,
-                        onCheckedChange = { onToggleAutoMode() }
+                        onCheckedChange = { isChecked -> onToggleAutoMode(isChecked) }
                     )
                 }
                 
@@ -58,7 +58,7 @@ fun ActuatorControlCard(
                     )
                     Switch(
                         checked = state.value,
-                        onCheckedChange = { onToggleValue() },
+                        onCheckedChange = { isChecked -> onToggleValue(isChecked) },
                         enabled = !state.isAuto // Only enabled in manual mode
                     )
                 }
