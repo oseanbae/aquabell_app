@@ -1,7 +1,6 @@
 package com.capstone.aquabell.ui
 
 import androidx.compose.foundation.BorderStroke
-import androidx.compose.foundation.Image
 import androidx.compose.material3.Icon
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
@@ -16,25 +15,17 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
-import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.lazy.grid.GridCells
-import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
-import androidx.compose.foundation.lazy.grid.items
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Home
-import androidx.compose.material.icons.filled.Notifications
-import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material.icons.filled.Info
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.ExperimentalMaterial3Api
-import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.NavigationBar
 import androidx.compose.material3.NavigationBarItem
@@ -68,10 +59,6 @@ import com.capstone.aquabell.ui.theme.AquabellTheme
 import com.capstone.aquabell.data.FirebaseRepository
 import com.capstone.aquabell.data.model.ControlMode
 import com.capstone.aquabell.data.model.RelayStates
-import kotlinx.coroutines.flow.collectLatest
-import kotlinx.coroutines.CoroutineScope
-import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.launch
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.capstone.aquabell.ui.viewmodel.HomeViewModel
 
@@ -212,10 +199,6 @@ fun ConnectionStatusBanner(
         }
     }
 }
-
-// AnalyticsScreen moved to its own file for clarity
-
-// AlertsScreen moved to its own file
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -1009,5 +992,3 @@ private fun BottomNavBar(selectedIndex: Int, onSelected: (Int) -> Unit) {
         }
     }
 }
-
-
