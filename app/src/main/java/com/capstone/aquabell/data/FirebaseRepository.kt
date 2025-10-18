@@ -123,23 +123,32 @@ class FirebaseRepository(
     private fun actuatorStatesRef(): DatabaseReference = rtdb.getReference("actuator_states").child(deviceId)
 
     fun liveData(): Flow<LiveDataSnapshot> = callbackFlow {
-        val docRef = db.collection("live_data").document(deviceId)
-        val listener = docRef.addSnapshotListener { snapshot, error ->
-            if (error != null) {
-                close(error)
-                return@addSnapshotListener
-            }
-            if (snapshot != null && snapshot.exists()) {
-                snapshot.toObject(LiveDataSnapshot::class.java)?.let { 
-                    trySend(it).isSuccess
-                    connectionState.tryEmit(ConnectionState.CONNECTED)
-                }
-            } else {
-                trySend(LiveDataSnapshot())
-                connectionState.tryEmit(ConnectionState.NOT_CONNECTED)
-            }
-        }
-        awaitClose { listener.remove() }
+		val ref = FirebaseDatabase.getInstance().getReference("live_data/$deviceId")
+		val listener = object : ValueEventListener {
+			override fun onDataChange(snapshot: DataSnapshot) {
+				if (snapshot.exists()) {
+					val data = snapshot.getValue(LiveDataSnapshot::class.java)
+					if (data != null) {
+						trySend(data).isSuccess
+						connectionState.tryEmit(ConnectionState.CONNECTED)
+					} else {
+						trySend(LiveDataSnapshot())
+						connectionState.tryEmit(ConnectionState.NOT_CONNECTED)
+					}
+				} else {
+					trySend(LiveDataSnapshot())
+					connectionState.tryEmit(ConnectionState.NOT_CONNECTED)
+				}
+			}
+
+			override fun onCancelled(error: DatabaseError) {
+				connectionState.tryEmit(ConnectionState.NOT_CONNECTED)
+				close(error.toException())
+			}
+		}
+
+		ref.addValueEventListener(listener)
+		awaitClose { ref.removeEventListener(listener) }
     }
 
     fun sensorLogs(): Flow<List<SensorLog>> = callbackFlow {
