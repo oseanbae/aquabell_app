@@ -1,6 +1,7 @@
 package com.capstone.aquabell.data.model
 
 import com.google.firebase.Timestamp
+import com.google.firebase.database.PropertyName
 
 data class RelayStates(
     val fan: Boolean = false,
@@ -53,7 +54,9 @@ data class SensorLog(
 
 // RTDB Models for actuator commands
 data class ActuatorState(
+    @get:com.google.firebase.database.PropertyName("isAuto")
     val isAuto: Boolean = true,
+    @get:com.google.firebase.database.PropertyName("value")
     val value: Boolean = false
 )
 

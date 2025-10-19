@@ -68,6 +68,7 @@ fun HomeScreen(modifier: Modifier = Modifier) {
     var selectedNavIndex by remember { mutableIntStateOf(1) } // center is Home
     val live by vm.live.collectAsState()
     val command by vm.command.collectAsState()
+    val commandLoaded by vm.isCommandLoaded.collectAsState()
     val offline by vm.offlineCache.collectAsState()
     val connectionState by vm.connectionState.collectAsState()
     val isRefreshing by vm.isRefreshing.collectAsState()
@@ -88,6 +89,7 @@ fun HomeScreen(modifier: Modifier = Modifier) {
                     modifier = Modifier.padding(inner),
                     live = live ?: offline,
                     command = command,
+                    commandLoaded = commandLoaded,
                     connectionState = connectionState,
                     isRefreshing = isRefreshing,
                     onRefresh = { vm.refresh() },
@@ -106,6 +108,7 @@ private fun HomeContent(
     modifier: Modifier = Modifier,
     live: com.capstone.aquabell.data.model.LiveDataSnapshot?,
     command: com.capstone.aquabell.data.model.CommandControl,
+    commandLoaded: Boolean,
     connectionState: FirebaseRepository.ConnectionState,
     isRefreshing: Boolean,
     onRefresh: () -> Unit,
@@ -126,11 +129,26 @@ private fun HomeContent(
         DashboardGrid(live)
         WaterLevelModule(live)
         ControlHeader()
-        PerActuatorControlGrid(
-            command = command,
-            onSetActuatorMode = onSetActuatorMode,
-            onSetActuatorValue = onSetActuatorValue
-        )
+        if (!commandLoaded) {
+            Box(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(200.dp),
+                contentAlignment = Alignment.Center
+            ) {
+                CircularProgressIndicator()
+            }
+        } else {
+            // Log the command state when rendering the control panel
+            LaunchedEffect(command) {
+                android.util.Log.d("HomeScreen", "Rendering control panel with states: fan=${command.fan.mode}/${command.fan.value}, light=${command.light.mode}/${command.light.value}, pump=${command.pump.mode}/${command.pump.value}, valve=${command.valve.mode}/${command.valve.value}")
+            }
+            PerActuatorControlGrid(
+                command = command,
+                onSetActuatorMode = onSetActuatorMode,
+                onSetActuatorValue = onSetActuatorValue
+            )
+        }
         Spacer(Modifier.height(16.dp))
     }
 }

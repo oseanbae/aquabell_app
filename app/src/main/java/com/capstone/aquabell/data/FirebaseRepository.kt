@@ -29,6 +29,7 @@ import com.google.android.gms.tasks.Task
 import com.google.firebase.auth.AuthResult
 import kotlin.coroutines.resume
 import kotlin.coroutines.resumeWithException
+import kotlin.coroutines.suspendCoroutine
 
 class FirebaseRepository(
     private val db: FirebaseFirestore = FirebaseFirestore.getInstance(),
@@ -352,8 +353,71 @@ class FirebaseRepository(
 
     // ---------------------------------------------------------------------
     // Compatibility shims for Firestore-era APIs used in UI
-    // These now write/read from RTDB under /commands and /actuator_states
+    // These now write/read from RTDB under /commands
     // ---------------------------------------------------------------------
+
+    suspend fun getCurrentActuatorState(): CommandControl? {
+        return try {
+            val dbRef = FirebaseDatabase.getInstance()
+                .getReference("commands")
+                .child(deviceId)
+
+            Log.d(TAG, "Fetching actuator state from RTDB path: /commands/$deviceId")
+
+            val snapshot = suspendCoroutine<DataSnapshot?> { cont ->
+                dbRef.get()
+                    .addOnSuccessListener { 
+                        Log.d(TAG, "✅ RTDB fetch successful, snapshot exists: ${it.exists()}")
+                        if (it.exists()) {
+                            Log.d(TAG, "Raw snapshot data: ${it.value}")
+                        }
+                        cont.resume(it) 
+                    }
+                    .addOnFailureListener { e ->
+                        Log.e(TAG, "❌ RTDB fetch failed: ${e.message}", e)
+                        cont.resume(null)
+                    }
+                    .addOnCanceledListener {
+                        Log.w(TAG, "⚠️ RTDB fetch canceled")
+                        cont.resume(null)
+                    }
+            }
+
+            snapshot?.let { dataSnapshot ->
+                if (dataSnapshot.exists()) {
+                    val commands = dataSnapshot.getValue(ActuatorCommands::class.java) ?: ActuatorCommands()
+                    Log.d(TAG, "Parsed ActuatorCommands: fan=${commands.fan.isAuto}/${commands.fan.value}, light=${commands.light.isAuto}/${commands.light.value}, pump=${commands.pump.isAuto}/${commands.pump.value}, valve=${commands.valve.isAuto}/${commands.valve.value}")
+                    
+                    val result = CommandControl(
+                        fan = ActuatorCommand(
+                            mode = if (commands.fan.isAuto) ControlMode.AUTO else ControlMode.MANUAL,
+                            value = commands.fan.value
+                        ),
+                        light = ActuatorCommand(
+                            mode = if (commands.light.isAuto) ControlMode.AUTO else ControlMode.MANUAL,
+                            value = commands.light.value
+                        ),
+                        pump = ActuatorCommand(
+                            mode = if (commands.pump.isAuto) ControlMode.AUTO else ControlMode.MANUAL,
+                            value = commands.pump.value
+                        ),
+                        valve = ActuatorCommand(
+                            mode = if (commands.valve.isAuto) ControlMode.AUTO else ControlMode.MANUAL,
+                            value = commands.valve.value
+                        )
+                    )
+                    Log.d(TAG, "✅ Returning CommandControl: fan=${result.fan.mode}/${result.fan.value}, light=${result.light.mode}/${result.light.value}, pump=${result.pump.mode}/${result.pump.value}, valve=${result.valve.mode}/${result.valve.value}")
+                    result
+                } else {
+                    Log.w(TAG, "❌ No data found at /commands/$deviceId")
+                    null
+                }
+            }
+        } catch (e: Exception) {
+            Log.e(TAG, "❌ Exception fetching current actuator state: ${e.message}", e)
+            null
+        }
+    }
 
     fun commandControl(): Flow<com.capstone.aquabell.data.model.CommandControl> = callbackFlow {
         val listener = object : ValueEventListener {
