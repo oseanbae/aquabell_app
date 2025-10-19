@@ -129,8 +129,8 @@ private fun HomeContent(
             .fillMaxSize()
             .background(MaterialTheme.colorScheme.surface)
             .verticalScroll(rememberScrollState())
-            .padding(horizontal = 16.dp),
-        verticalArrangement = Arrangement.spacedBy(16.dp)
+            .padding(horizontal = 12.dp),
+        verticalArrangement = Arrangement.spacedBy(12.dp)
     ) {
         ConnectionStatusBanner(connectionState, isRefreshing, onRefresh)
         SectionHeader(title = "Dashboard")
@@ -373,7 +373,7 @@ fun DashboardGrid(live: com.capstone.aquabell.data.model.LiveDataSnapshot?) {
         ),
     )
     
-    // Responsive grid layout
+    // Responsive grid layout (denser spacing for compactness)
     BoxWithConstraints(
         modifier = Modifier.fillMaxWidth()
     ) {
@@ -383,12 +383,12 @@ fun DashboardGrid(live: com.capstone.aquabell.data.model.LiveDataSnapshot?) {
         if (isTablet) {
             // Tablet layout: 3 columns
             Column(
-                verticalArrangement = Arrangement.spacedBy(12.dp)
+                verticalArrangement = Arrangement.spacedBy(8.dp)
             ) {
                 // Row 1: First 3 metrics
                 Row(
                     modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.spacedBy(12.dp)
+                    horizontalArrangement = Arrangement.spacedBy(8.dp)
                 ) {
                     metrics.take(3).forEach { metric ->
                         MetricCard(
@@ -405,7 +405,7 @@ fun DashboardGrid(live: com.capstone.aquabell.data.model.LiveDataSnapshot?) {
                 // Row 2: Last 3 metrics
                 Row(
                     modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.spacedBy(12.dp)
+                    horizontalArrangement = Arrangement.spacedBy(8.dp)
                 ) {
                     metrics.drop(3).forEach { metric ->
                         MetricCard(
@@ -422,12 +422,12 @@ fun DashboardGrid(live: com.capstone.aquabell.data.model.LiveDataSnapshot?) {
         } else {
             // Phone layout: 2 columns
             Column(
-                verticalArrangement = Arrangement.spacedBy(12.dp)
+                verticalArrangement = Arrangement.spacedBy(8.dp)
             ) {
                 // Row 1: First 2 metrics
                 Row(
                     modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.spacedBy(12.dp)
+                    horizontalArrangement = Arrangement.spacedBy(8.dp)
                 ) {
                     metrics.take(2).forEach { metric ->
                         MetricCard(
@@ -444,7 +444,7 @@ fun DashboardGrid(live: com.capstone.aquabell.data.model.LiveDataSnapshot?) {
                 // Row 2: Next 2 metrics
                 Row(
                     modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.spacedBy(12.dp)
+                    horizontalArrangement = Arrangement.spacedBy(8.dp)
                 ) {
                     metrics.drop(2).take(2).forEach { metric ->
                         MetricCard(
@@ -461,7 +461,7 @@ fun DashboardGrid(live: com.capstone.aquabell.data.model.LiveDataSnapshot?) {
                 // Row 3: Last 2 metrics
                 Row(
                     modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.spacedBy(12.dp)
+                    horizontalArrangement = Arrangement.spacedBy(8.dp)
                 ) {
                     metrics.drop(4).forEach { metric ->
                         MetricCard(
@@ -487,7 +487,7 @@ private fun WaterLevelModule(live: com.capstone.aquabell.data.model.LiveDataSnap
     OutlinedCard(
         modifier = Modifier
             .fillMaxWidth()
-            .height(120.dp), // Match sensor card height
+            .height(112.dp), // Slightly tighter to match compact sensor cards
         colors = CardDefaults.cardColors(
             containerColor = if (isLowWater) {
                 Color(0xFFFF5722).copy(alpha = 0.05f) // Light red background for low water
@@ -495,23 +495,23 @@ private fun WaterLevelModule(live: com.capstone.aquabell.data.model.LiveDataSnap
                 MaterialTheme.colorScheme.surface
             }
         ),
-        shape = RoundedCornerShape(16.dp),
+        shape = RoundedCornerShape(14.dp),
         border = BorderStroke(
-            width = 2.dp,
+            width = 1.5.dp,
             color = if (isLowWater) Color(0xFFFF5722) else outline
         )
     ) {
         Row(
             modifier = Modifier
                 .fillMaxSize()
-                .padding(16.dp),
-            horizontalArrangement = Arrangement.spacedBy(16.dp),
+                .padding(12.dp),
+            horizontalArrangement = Arrangement.spacedBy(12.dp),
             verticalAlignment = Alignment.CenterVertically
         ) {
             // Icon with background
             Box(
                 modifier = Modifier
-                    .size(40.dp) // Match sensor card icon size
+                    .size(44.dp) // Slightly larger for visibility
                     .clip(RoundedCornerShape(12.dp))
                     .background(
                         if (isLowWater) {
@@ -526,7 +526,7 @@ private fun WaterLevelModule(live: com.capstone.aquabell.data.model.LiveDataSnap
                     painter = painterResource(id = R.drawable.ic_valve),
                     contentDescription = "Water Level",
                     tint = if (isLowWater) Color(0xFFFF5722) else MaterialTheme.colorScheme.primary,
-                    modifier = Modifier.size(24.dp)
+                    modifier = Modifier.size(26.dp)
                 )
             }
             
@@ -534,19 +534,19 @@ private fun WaterLevelModule(live: com.capstone.aquabell.data.model.LiveDataSnap
             Column(modifier = Modifier.weight(1f)) {
                 Text(
                     text = "Water Level",
-                    style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold),
+                    style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold, fontSize = 18.sp),
                     color = MaterialTheme.colorScheme.onSurface
                 )
                 Spacer(Modifier.height(4.dp))
                 Text(
                     text = if (isLowWater) "LOW WATER LEVEL DETECTED" else "Water level is normal",
-                    style = MaterialTheme.typography.bodyMedium,
+                    style = MaterialTheme.typography.bodyMedium.copy(fontSize = 14.sp),
                     color = if (isLowWater) Color(0xFFFF5722) else MaterialTheme.colorScheme.onSurface.copy(alpha = 0.7f)
                 )
                 Spacer(Modifier.height(8.dp))
                 Text(
                     text = if (isLowWater) "⚠️ Check water supply immediately" else "✓ System operating normally",
-                    style = MaterialTheme.typography.labelMedium,
+                    style = MaterialTheme.typography.labelMedium.copy(fontSize = 12.sp),
                     color = if (isLowWater) Color(0xFFFF5722) else MaterialTheme.colorScheme.tertiary
                 )
             }
@@ -554,7 +554,7 @@ private fun WaterLevelModule(live: com.capstone.aquabell.data.model.LiveDataSnap
             // Status indicator
             Box(
                 modifier = Modifier
-                    .size(24.dp)
+                    .size(22.dp)
                     .clip(CircleShape)
                     .background(
                         if (isLowWater) Color(0xFFFF5722) else Color(0xFF4CAF50)
@@ -593,24 +593,24 @@ private fun MetricCard(
     
     Box(
         modifier = modifier
-            .height(120.dp) // Fixed height for consistency
+            .height(112.dp) // More compact height
     ) {
         OutlinedCard(
             modifier = Modifier.fillMaxSize(),
             colors = CardDefaults.cardColors(
                 containerColor = MaterialTheme.colorScheme.surface
             ),
-            shape = RoundedCornerShape(16.dp),
+            shape = RoundedCornerShape(14.dp),
             border = BorderStroke(1.dp, borderColor)
         ) {
             Column(
                 modifier = Modifier
                     .fillMaxSize()
-                    .padding(16.dp),
+                    .padding(12.dp),
                 horizontalAlignment = Alignment.CenterHorizontally,
                 verticalArrangement = Arrangement.SpaceBetween
             ) {
-                // Top row: Icon and Info button
+                // Top row: Icon and Info button (increase icon prominence)
                 Row(
                     modifier = Modifier.fillMaxWidth(),
                     horizontalArrangement = Arrangement.SpaceBetween,
@@ -618,7 +618,7 @@ private fun MetricCard(
                 ) {
                     Box(
                         modifier = Modifier
-                            .size(40.dp)
+                            .size(44.dp)
                             .clip(RoundedCornerShape(12.dp))
                             .background(
                                 if (title == "Water Level" && status == "Low") {
@@ -632,8 +632,9 @@ private fun MetricCard(
                         Icon(
                             painter = painterResource(id = iconRes),
                             contentDescription = null,
-                            tint = Color.Unspecified,
-                            modifier = Modifier.size(24.dp)
+                            // Theme-aware tint for contrast in dark/light
+                            tint = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.85f),
+                            modifier = Modifier.size(28.dp)
                         )
                     }
                     
@@ -653,7 +654,7 @@ private fun MetricCard(
                     }
                 }
                 
-                // Center: Value with adaptive sizing
+                // Center: Value with adaptive sizing (balanced prominence)
                 AnimatedContent(
                     targetState = value,
                     transitionSpec = {
@@ -681,7 +682,7 @@ private fun MetricCard(
                 ) {
                     Text(
                         text = title,
-                        style = MaterialTheme.typography.bodySmall,
+                        style = MaterialTheme.typography.bodyMedium.copy(fontSize = 14.sp, fontWeight = FontWeight.Medium),
                         color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.7f),
                         maxLines = 2,
                         overflow = TextOverflow.Ellipsis,
@@ -690,7 +691,7 @@ private fun MetricCard(
                     Spacer(Modifier.height(4.dp))
                     Text(
                         text = status,
-                        style = MaterialTheme.typography.labelSmall,
+                        style = MaterialTheme.typography.labelMedium.copy(fontWeight = FontWeight.SemiBold),
                         color = borderColor, // Use the status color from the border
                         textAlign = TextAlign.Center
                     )
@@ -711,26 +712,36 @@ private fun MetricCard(
                 else -> "Sensor information"
             }
 
-            Box(
-                modifier = Modifier
-                    .align(Alignment.TopEnd)
-                    .padding(top = 8.dp, end = 8.dp)
-                    .width(240.dp)
-            ) {
-                OutlinedCard(
-                    colors = CardDefaults.cardColors(
-                        containerColor = MaterialTheme.colorScheme.surface
-                    ),
-                    border = BorderStroke(1.dp, MaterialTheme.colorScheme.outline),
-                    shape = RoundedCornerShape(16.dp),
-                    elevation = CardDefaults.cardElevation(defaultElevation = 8.dp)
-                ) {
-                    Text(
-                        text = tooltipText,
-                        style = MaterialTheme.typography.bodySmall,
-                        modifier = Modifier.padding(16.dp),
-                        color = MaterialTheme.colorScheme.onSurface
-                    )
+            AnimatedContent(
+                targetState = showTooltip,
+                transitionSpec = {
+                    fadeIn() togetherWith fadeOut()
+                },
+                label = "tooltip_animation"
+            ) { visible ->
+                if (visible) {
+                    Box(
+                        modifier = Modifier
+                            .align(Alignment.TopEnd)
+                            .padding(top = 6.dp, end = 6.dp)
+                            .width(240.dp)
+                    ) {
+                        OutlinedCard(
+                            colors = CardDefaults.cardColors(
+                                containerColor = MaterialTheme.colorScheme.surface
+                            ),
+                            border = BorderStroke(1.dp, MaterialTheme.colorScheme.outline),
+                            shape = RoundedCornerShape(12.dp),
+                            elevation = CardDefaults.cardElevation(defaultElevation = 8.dp)
+                        ) {
+                            Text(
+                                text = tooltipText,
+                                style = MaterialTheme.typography.bodySmall,
+                                modifier = Modifier.padding(12.dp),
+                                color = MaterialTheme.colorScheme.onSurface
+                            )
+                        }
+                    }
                 }
             }
         }
