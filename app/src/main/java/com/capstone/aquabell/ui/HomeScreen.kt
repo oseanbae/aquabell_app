@@ -1,11 +1,18 @@
 package com.capstone.aquabell.ui
 
+import androidx.compose.animation.AnimatedContent
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.slideInVertically
+import androidx.compose.animation.slideOutVertically
+import androidx.compose.animation.togetherWith
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.material3.Icon
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
@@ -51,6 +58,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -260,73 +268,212 @@ private fun SectionHeader(title: String) {
     )
 }
 
+// Helper function to determine status and color based on sensor thresholds
+private fun getSensorStatus(title: String, value: Double): Pair<String, Color> {
+    return when (title) {
+        "Air Temp." -> {
+            when {
+                value in 21.0..29.0 -> "Excellent" to Color(0xFF4CAF50)
+                value in 19.0..21.0 || value in 29.0..32.0 -> "Good" to Color(0xFF2196F3)
+                value in 17.0..19.0 || value in 32.0..35.0 -> "Caution" to Color(0xFFFF9800)
+                else -> "Critical" to Color(0xFFF44336)
+            }
+        }
+        "Air Humidity RH" -> {
+            when {
+                value in 60.0..70.0 -> "Excellent" to Color(0xFF4CAF50)
+                value in 50.0..60.0 || value in 70.0..80.0 -> "Good" to Color(0xFF2196F3)
+                value in 40.0..50.0 || value in 80.0..90.0 -> "Caution" to Color(0xFFFF9800)
+                else -> "Critical" to Color(0xFFF44336)
+            }
+        }
+        "Water Temp." -> {
+            when {
+                value in 24.0..28.0 -> "Excellent" to Color(0xFF4CAF50)
+                value in 22.0..24.0 || value in 28.0..30.0 -> "Good" to Color(0xFF2196F3)
+                value in 20.0..22.0 || value in 30.0..32.0 -> "Caution" to Color(0xFFFF9800)
+                else -> "Critical" to Color(0xFFF44336)
+            }
+        }
+        "pH Level" -> {
+            when {
+                value in 6.5..7.5 -> "Excellent" to Color(0xFF4CAF50)
+                value in 6.3..6.8 || value in 7.5..7.8 -> "Good" to Color(0xFF2196F3)
+                value < 6.3 || value in 7.8..8.2 -> "Caution" to Color(0xFFFF9800)
+                else -> "Critical" to Color(0xFFF44336)
+            }
+        }
+        "Dissolved Oxygen" -> {
+            when {
+                value >= 6.5 -> "Excellent" to Color(0xFF4CAF50)
+                value in 5.5..6.5 -> "Good" to Color(0xFF2196F3)
+                value in 4.0..5.5 -> "Caution" to Color(0xFFFF9800)
+                else -> "Critical" to Color(0xFFF44336)
+            }
+        }
+        "Turbidity Level" -> {
+            when {
+                value <= 50.0 -> "Excellent" to Color(0xFF4CAF50)
+                value in 51.0..120.0 -> "Good" to Color(0xFF2196F3)
+                value in 121.0..250.0 -> "Caution" to Color(0xFFFF9800)
+                else -> "Critical" to Color(0xFFF44336)
+            }
+        }
+        else -> "Unknown" to Color(0xFF9E9E9E)
+    }
+}
+
 @Composable
 fun DashboardGrid(live: com.capstone.aquabell.data.model.LiveDataSnapshot?) {
     val outline = MaterialTheme.colorScheme.outline
-    data class MetricData(val title: String, val value: String, val iconRes: Int)
+    data class MetricData(val title: String, val value: String, val iconRes: Int, val status: String, val statusColor: Color)
     
     val metrics: List<MetricData> = listOf(
-        MetricData("Air Temp.", if (live!=null) String.format("%.1f°C", live.airTemp) else "-", R.drawable.ic_thermometer),
-        MetricData("Air Humidity RH", if (live!=null) String.format("%.0f%%", live.airHumidity) else "-", R.drawable.ic_humidity),
-        MetricData("Water Temp.", if (live!=null) String.format("%.1f°C", live.waterTemp) else "-", R.drawable.ic_water_temp),
-        MetricData("pH Level", if (live!=null) String.format("%.1f pH", live.pH) else "-", R.drawable.ic_ph),
-        MetricData("Dissolved Oxygen", if (live!=null) String.format("%.1f mg/L", live.dissolvedOxygen) else "-", R.drawable.ic_oxygen),
-        MetricData("Turbidity Level", if (live!=null) String.format("%.0f NTU", live.turbidityNTU) else "-", R.drawable.ic_turbidity),
+        MetricData(
+            "Air Temp.", 
+            if (live!=null) String.format("%.1f°C", live.airTemp) else "-", 
+            R.drawable.ic_thermometer,
+            if (live!=null) getSensorStatus("Air Temp.", live.airTemp).first else "Unknown",
+            if (live!=null) getSensorStatus("Air Temp.", live.airTemp).second else Color(0xFF9E9E9E)
+        ),
+        MetricData(
+            "Air Humidity RH", 
+            if (live!=null) String.format("%.0f%%", live.airHumidity) else "-", 
+            R.drawable.ic_humidity,
+            if (live!=null) getSensorStatus("Air Humidity RH", live.airHumidity).first else "Unknown",
+            if (live!=null) getSensorStatus("Air Humidity RH", live.airHumidity).second else Color(0xFF9E9E9E)
+        ),
+        MetricData(
+            "Water Temp.", 
+            if (live!=null) String.format("%.1f°C", live.waterTemp) else "-", 
+            R.drawable.ic_water_temp,
+            if (live!=null) getSensorStatus("Water Temp.", live.waterTemp).first else "Unknown",
+            if (live!=null) getSensorStatus("Water Temp.", live.waterTemp).second else Color(0xFF9E9E9E)
+        ),
+        MetricData(
+            "pH Level", 
+            if (live!=null) String.format("%.1f pH", live.pH) else "-", 
+            R.drawable.ic_ph,
+            if (live!=null) getSensorStatus("pH Level", live.pH).first else "Unknown",
+            if (live!=null) getSensorStatus("pH Level", live.pH).second else Color(0xFF9E9E9E)
+        ),
+        MetricData(
+            "Dissolved Oxygen", 
+            if (live!=null) String.format("%.1f mg/L", live.dissolvedOxygen) else "-", 
+            R.drawable.ic_oxygen,
+            if (live!=null) getSensorStatus("Dissolved Oxygen", live.dissolvedOxygen).first else "Unknown",
+            if (live!=null) getSensorStatus("Dissolved Oxygen", live.dissolvedOxygen).second else Color(0xFF9E9E9E)
+        ),
+        MetricData(
+            "Turbidity Level", 
+            if (live!=null) String.format("%.0f NTU", live.turbidityNTU) else "-", 
+            R.drawable.ic_turbidity,
+            if (live!=null) getSensorStatus("Turbidity Level", live.turbidityNTU).first else "Unknown",
+            if (live!=null) getSensorStatus("Turbidity Level", live.turbidityNTU).second else Color(0xFF9E9E9E)
+        ),
     )
     
-    Column {
-        // Row 1: First 2 metrics
-        Row(
-            modifier = Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.spacedBy(12.dp)
-        ) {
-            metrics.take(2).forEach { metric ->
-                MetricCard(
-                    title = metric.title,
-                    value = metric.value,
-                    status = "Excellent",
-                    iconRes = metric.iconRes,
-                    borderColor = outline,
-                    modifier = Modifier.weight(1f)
-                )
+    // Responsive grid layout
+    BoxWithConstraints(
+        modifier = Modifier.fillMaxWidth()
+    ) {
+        val screenWidth = maxWidth
+        val isTablet = screenWidth > 600.dp
+        
+        if (isTablet) {
+            // Tablet layout: 3 columns
+            Column(
+                verticalArrangement = Arrangement.spacedBy(12.dp)
+            ) {
+                // Row 1: First 3 metrics
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(12.dp)
+                ) {
+                    metrics.take(3).forEach { metric ->
+                        MetricCard(
+                            title = metric.title,
+                            value = metric.value,
+                            status = metric.status,
+                            iconRes = metric.iconRes,
+                            borderColor = metric.statusColor,
+                            modifier = Modifier.weight(1f)
+                        )
+                    }
+                }
+                
+                // Row 2: Last 3 metrics
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(12.dp)
+                ) {
+                    metrics.drop(3).forEach { metric ->
+                        MetricCard(
+                            title = metric.title,
+                            value = metric.value,
+                            status = metric.status,
+                            iconRes = metric.iconRes,
+                            borderColor = metric.statusColor,
+                            modifier = Modifier.weight(1f)
+                        )
+                    }
+                }
             }
-        }
-        
-        Spacer(Modifier.height(12.dp))
-        
-        // Row 2: Next 2 metrics
-        Row(
-            modifier = Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.spacedBy(12.dp)
-        ) {
-            metrics.drop(2).take(2).forEach { metric ->
-                MetricCard(
-                    title = metric.title,
-                    value = metric.value,
-                    status = "Excellent",
-                    iconRes = metric.iconRes,
-                    borderColor = outline,
-                    modifier = Modifier.weight(1f)
-                )
-            }
-        }
-        
-        Spacer(Modifier.height(12.dp))
-        
-        // Row 3: Last 2 metrics
-        Row(
-            modifier = Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.spacedBy(12.dp)
-        ) {
-            metrics.drop(4).forEach { metric ->
-                MetricCard(
-                    title = metric.title,
-                    value = metric.value,
-                    status = "Excellent",
-                    iconRes = metric.iconRes,
-                    borderColor = outline,
-                    modifier = Modifier.weight(1f)
-                )
+        } else {
+            // Phone layout: 2 columns
+            Column(
+                verticalArrangement = Arrangement.spacedBy(12.dp)
+            ) {
+                // Row 1: First 2 metrics
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(12.dp)
+                ) {
+                    metrics.take(2).forEach { metric ->
+                        MetricCard(
+                            title = metric.title,
+                            value = metric.value,
+                            status = metric.status,
+                            iconRes = metric.iconRes,
+                            borderColor = metric.statusColor,
+                            modifier = Modifier.weight(1f)
+                        )
+                    }
+                }
+                
+                // Row 2: Next 2 metrics
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(12.dp)
+                ) {
+                    metrics.drop(2).take(2).forEach { metric ->
+                        MetricCard(
+                            title = metric.title,
+                            value = metric.value,
+                            status = metric.status,
+                            iconRes = metric.iconRes,
+                            borderColor = metric.statusColor,
+                            modifier = Modifier.weight(1f)
+                        )
+                    }
+                }
+                
+                // Row 3: Last 2 metrics
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(12.dp)
+                ) {
+                    metrics.drop(4).forEach { metric ->
+                        MetricCard(
+                            title = metric.title,
+                            value = metric.value,
+                            status = metric.status,
+                            iconRes = metric.iconRes,
+                            borderColor = metric.statusColor,
+                            modifier = Modifier.weight(1f)
+                        )
+                    }
+                }
             }
         }
     }
@@ -338,7 +485,9 @@ private fun WaterLevelModule(live: com.capstone.aquabell.data.model.LiveDataSnap
     val isLowWater = live?.floatTriggered == true
     
     OutlinedCard(
-        modifier = Modifier.fillMaxWidth(),
+        modifier = Modifier
+            .fillMaxWidth()
+            .height(120.dp), // Match sensor card height
         colors = CardDefaults.cardColors(
             containerColor = if (isLowWater) {
                 Color(0xFFFF5722).copy(alpha = 0.05f) // Light red background for low water
@@ -354,7 +503,7 @@ private fun WaterLevelModule(live: com.capstone.aquabell.data.model.LiveDataSnap
     ) {
         Row(
             modifier = Modifier
-                .fillMaxWidth()
+                .fillMaxSize()
                 .padding(16.dp),
             horizontalArrangement = Arrangement.spacedBy(16.dp),
             verticalAlignment = Alignment.CenterVertically
@@ -362,8 +511,8 @@ private fun WaterLevelModule(live: com.capstone.aquabell.data.model.LiveDataSnap
             // Icon with background
             Box(
                 modifier = Modifier
-                    .size(56.dp)
-                    .clip(RoundedCornerShape(16.dp))
+                    .size(40.dp) // Match sensor card icon size
+                    .clip(RoundedCornerShape(12.dp))
                     .background(
                         if (isLowWater) {
                             Color(0xFFFF5722).copy(alpha = 0.15f)
@@ -377,7 +526,7 @@ private fun WaterLevelModule(live: com.capstone.aquabell.data.model.LiveDataSnap
                     painter = painterResource(id = R.drawable.ic_valve),
                     contentDescription = "Water Level",
                     tint = if (isLowWater) Color(0xFFFF5722) else MaterialTheme.colorScheme.primary,
-                    modifier = Modifier.size(28.dp)
+                    modifier = Modifier.size(24.dp)
                 )
             }
             
@@ -434,9 +583,17 @@ private fun MetricCard(
         }
     }
     
+    // Calculate adaptive font size based on value length
+    val adaptiveFontSize = when {
+        value.length <= 8 -> 18.sp
+        value.length <= 12 -> 16.sp
+        value.length <= 16 -> 14.sp
+        else -> 12.sp
+    }
+    
     Box(
         modifier = modifier
-            .height(100.dp) // Increased height to accommodate longer text
+            .height(120.dp) // Fixed height for consistency
     ) {
         OutlinedCard(
             modifier = Modifier.fillMaxSize(),
@@ -446,67 +603,96 @@ private fun MetricCard(
             shape = RoundedCornerShape(16.dp),
             border = BorderStroke(1.dp, borderColor)
         ) {
-            Row(
+            Column(
                 modifier = Modifier
                     .fillMaxSize()
-                    .padding(12.dp),
-                horizontalArrangement = Arrangement.spacedBy(12.dp),
-                verticalAlignment = Alignment.CenterVertically
+                    .padding(16.dp),
+                horizontalAlignment = Alignment.CenterHorizontally,
+                verticalArrangement = Arrangement.SpaceBetween
             ) {
-                Box(
-                    modifier = Modifier
-                        .size(40.dp)
-                        .clip(RoundedCornerShape(12.dp))
-                        .background(
-                            if (title == "Water Level" && status == "Low") {
-                                Color(0xFFFF5722).copy(alpha = 0.15f) // Red-orange background for low water level
-                            } else {
-                                MaterialTheme.colorScheme.primary.copy(alpha = 0.12f)
-                            }
-                        ),
-                    contentAlignment = Alignment.Center
+                // Top row: Icon and Info button
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
                 ) {
-                    Icon(
-                        painter = painterResource(id = iconRes),
-                        contentDescription = null,
-                        tint = Color.Unspecified,
-                        modifier = Modifier.size(24.dp)
-                    )
+                    Box(
+                        modifier = Modifier
+                            .size(40.dp)
+                            .clip(RoundedCornerShape(12.dp))
+                            .background(
+                                if (title == "Water Level" && status == "Low") {
+                                    Color(0xFFFF5722).copy(alpha = 0.15f)
+                                } else {
+                                    MaterialTheme.colorScheme.primary.copy(alpha = 0.12f)
+                                }
+                            ),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Icon(
+                            painter = painterResource(id = iconRes),
+                            contentDescription = null,
+                            tint = Color.Unspecified,
+                            modifier = Modifier.size(24.dp)
+                        )
+                    }
+                    
+                    // Info icon for tooltip
+                    Box(
+                        modifier = Modifier
+                            .size(24.dp)
+                            .clickable { showTooltip = !showTooltip },
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Icon(
+                            imageVector = Icons.Default.Info,
+                            contentDescription = "Sensor information",
+                            tint = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f),
+                            modifier = Modifier.size(20.dp)
+                        )
+                    }
                 }
-
-                Column(modifier = Modifier.weight(1f)) {
+                
+                // Center: Value with adaptive sizing
+                AnimatedContent(
+                    targetState = value,
+                    transitionSpec = {
+                        slideInVertically { it } + fadeIn() togetherWith
+                        slideOutVertically { -it } + fadeOut()
+                    },
+                    label = "value_animation"
+                ) { animatedValue ->
                     Text(
-                        text = value, 
-                        style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.SemiBold),
-                        color = if (title == "Water Level" && status == "Low") Color(0xFFFF5722) else MaterialTheme.colorScheme.onSurface
-                    )
-                    Text(
-                        text = title, 
-                        style = MaterialTheme.typography.bodySmall, 
-                        color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.7f),
-                        maxLines = 2,
-                        overflow = TextOverflow.Ellipsis
-                    )
-                    Spacer(Modifier.height(4.dp))
-                    Text(
-                        text = status, 
-                        style = MaterialTheme.typography.labelSmall, 
-                        color = if (status == "Low") Color(0xFFFF5722) else MaterialTheme.colorScheme.tertiary
+                        text = animatedValue,
+                        style = MaterialTheme.typography.titleLarge.copy(
+                            fontWeight = FontWeight.Bold,
+                            fontSize = adaptiveFontSize
+                        ),
+                        color = if (title == "Water Level" && status == "Low") Color(0xFFFF5722) else MaterialTheme.colorScheme.onSurface,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis,
+                        textAlign = TextAlign.Center
                     )
                 }
                 
-                // Info icon for tooltip
-                Box(
-                    modifier = Modifier
-                        .size(24.dp)
-                        .clickable { showTooltip = !showTooltip },
-                    contentAlignment = Alignment.Center
+                // Bottom: Title and Status
+                Column(
+                    horizontalAlignment = Alignment.CenterHorizontally
                 ) {
-                    Icon(
-                        imageVector = Icons.Default.Info,
-                        contentDescription = "Sensor information",
-                        tint = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f),
-                        modifier = Modifier.size(20.dp)
+                    Text(
+                        text = title,
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.7f),
+                        maxLines = 2,
+                        overflow = TextOverflow.Ellipsis,
+                        textAlign = TextAlign.Center
+                    )
+                    Spacer(Modifier.height(4.dp))
+                    Text(
+                        text = status,
+                        style = MaterialTheme.typography.labelSmall,
+                        color = borderColor, // Use the status color from the border
+                        textAlign = TextAlign.Center
                     )
                 }
             }
@@ -525,14 +711,12 @@ private fun MetricCard(
                 else -> "Sensor information"
             }
 
-
             Box(
                 modifier = Modifier
                     .align(Alignment.TopEnd)
                     .padding(top = 8.dp, end = 8.dp)
                     .width(240.dp)
             ) {
-                // Clean tooltip with elevation
                 OutlinedCard(
                     colors = CardDefaults.cardColors(
                         containerColor = MaterialTheme.colorScheme.surface
