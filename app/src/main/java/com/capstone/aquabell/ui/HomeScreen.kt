@@ -154,7 +154,8 @@ private fun HomeContent(
             PerActuatorControlGrid(
                 command = command,
                 onSetActuatorMode = onSetActuatorMode,
-                onSetActuatorValue = onSetActuatorValue
+                onSetActuatorValue = onSetActuatorValue,
+                live = live
             )
         }
         Spacer(Modifier.height(16.dp))
@@ -663,6 +664,11 @@ private fun MetricCard(
                     },
                     label = "value_animation"
                 ) { animatedValue ->
+                    // Nudge elevation briefly on update
+                    LaunchedEffect(animatedValue) {
+                        // pulse elevation
+                        kotlinx.coroutines.delay(250)
+                    }
                     Text(
                         text = animatedValue,
                         style = MaterialTheme.typography.titleLarge.copy(
@@ -715,7 +721,8 @@ private fun MetricCard(
             AnimatedContent(
                 targetState = showTooltip,
                 transitionSpec = {
-                    fadeIn() togetherWith fadeOut()
+                    (slideInVertically { fullHeight -> fullHeight / 3 } + fadeIn()) togetherWith
+                    (slideOutVertically { fullHeight -> -fullHeight / 3 } + fadeOut())
                 },
                 label = "tooltip_animation"
             ) { visible ->
@@ -745,6 +752,36 @@ private fun MetricCard(
                 }
             }
         }
+    }
+}
+
+// Helper function to determine system status based on sensor readings
+fun getSystemStatus(live: com.capstone.aquabell.data.model.LiveDataSnapshot?): Pair<String, Color> {
+    if (live == null) return "Unknown" to Color(0xFF9E9E9E)
+
+    // Check all critical parameters
+    val criticalCount = listOf(
+        live.airTemp < 17 || live.airTemp > 35,
+        live.airHumidity < 40 || live.airHumidity > 90,
+        live.waterTemp < 20 || live.waterTemp > 32,
+        live.pH < 6.0 || live.pH > 8.5,
+        live.dissolvedOxygen < 4.0,
+        live.turbidityNTU > 250
+    ).count { it }
+
+    val cautionCount = listOf(
+        (live.airTemp in 17.0..19.0) || (live.airTemp in 32.0..35.0),
+        (live.airHumidity in 40.0..50.0) || (live.airHumidity in 80.0..90.0),
+        (live.waterTemp in 20.0..22.0) || (live.waterTemp in 30.0..32.0),
+        (live.pH < 6.3) || (live.pH in 7.8..8.2),
+        live.dissolvedOxygen in 4.0..5.5,
+        live.turbidityNTU in 121.0..250.0
+    ).count { it }
+
+    return when {
+        criticalCount > 0 -> "Critical" to Color(0xFFF44336)
+        cautionCount > 0 -> "Caution" to Color(0xFFFF9800)
+        else -> "Good" to Color(0xFF4CAF50)
     }
 }
 
@@ -957,7 +994,7 @@ private fun ControlTile(
                         painter = painterResource(id = iconRes),
                         contentDescription = null,
                         tint = tint,
-                        modifier = Modifier.size(28.dp)
+                        modifier = Modifier.size(34.dp)
                     )
                 }
                 val labelColor = if (isActive) accent else MaterialTheme.colorScheme.onSurface
@@ -976,8 +1013,10 @@ private fun PerActuatorControlGrid(
     command: com.capstone.aquabell.data.model.CommandControl,
     onSetActuatorMode: (actuator: String, mode: ControlMode) -> Unit,
     onSetActuatorValue: (actuator: String, value: Boolean) -> Unit,
+    live: com.capstone.aquabell.data.model.LiveDataSnapshot? = null,
 ) {
     val outline = MaterialTheme.colorScheme.outline
+
 
     // Accent colors
     val lightColor = Color(0xFFFFC107)
@@ -1062,6 +1101,9 @@ private fun PerActuatorControlGrid(
         val border = if (isActive) tile.accent else outline
         val enabledContainer = if (isActive) tile.accent.copy(alpha = 0.18f) else MaterialTheme.colorScheme.surface
         val container = if (enabled) enabledContainer else enabledContainer.copy(alpha = 0.6f)
+        
+        // Get system status
+        val (statusText, statusColor) = getSystemStatus(live)
 
         OutlinedCard(
             modifier = modifier
@@ -1076,6 +1118,7 @@ private fun PerActuatorControlGrid(
                     .padding(12.dp),
                 verticalArrangement = Arrangement.SpaceBetween
             ) {
+                // Top row: Title and Mode switch
                 Row(
                     modifier = Modifier.fillMaxWidth(),
                     horizontalArrangement = Arrangement.SpaceBetween,
@@ -1083,7 +1126,10 @@ private fun PerActuatorControlGrid(
                 ) {
                     Text(
                         tile.title,
-                        style = MaterialTheme.typography.labelLarge.copy(letterSpacing = 1.5.sp),
+                        style = MaterialTheme.typography.labelLarge.copy(
+                            letterSpacing = 1.5.sp,
+                            fontWeight = FontWeight.Bold
+                        ),
                         color = if (isActive) tile.accent else MaterialTheme.colorScheme.onSurface
                     )
                     Row(verticalAlignment = Alignment.CenterVertically) {
@@ -1112,21 +1158,20 @@ private fun PerActuatorControlGrid(
                     }
                 }
 
+                // Center: Icon and Status
                 Column(
                     horizontalAlignment = Alignment.CenterHorizontally,
                     verticalArrangement = Arrangement.Center
                 ) {
                     Box(
                         modifier = Modifier
-                            .size(64.dp)
+                            .size(72.dp)
                             .clip(RoundedCornerShape(20.dp))
                             .background(
                                 if (isActive) tile.accent.copy(alpha = 0.12f)
                                 else MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f)
                             )
-                                .clickable(enabled = enabled) {
-                                tile.onToggleValue()
-                            },
+                                .clickable(enabled = enabled) { tile.onToggleValue() },
                         contentAlignment = Alignment.Center
                     ) {
                         val tint = if (isActive) tile.accent else MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f)
@@ -1134,7 +1179,7 @@ private fun PerActuatorControlGrid(
                             painter = painterResource(id = tile.iconRes),
                             contentDescription = null,
                             tint = tint,
-                            modifier = Modifier.size(32.dp)
+                            modifier = Modifier.size(38.dp)
                         )
                     }
                     
@@ -1145,10 +1190,18 @@ private fun PerActuatorControlGrid(
                         style = MaterialTheme.typography.labelLarge.copy(fontWeight = FontWeight.Medium),
                         color = if (isActive) tile.accent else MaterialTheme.colorScheme.onSurface.copy(alpha = 0.7f)
                     )
+                    
+                    Spacer(Modifier.height(4.dp))
+                    
+                    Text(
+                        text = statusText,
+                        style = MaterialTheme.typography.labelMedium.copy(fontWeight = FontWeight.SemiBold),
+                        color = statusColor
+                    )
                 }
 
-                // Helper text for clarity
-                    val helper = if (isAuto) "Automatic control is active. Switch to Manual to override." else "Manual control is active."
+                // Bottom: Helper text
+                val helper = if (isAuto) "Automatic control is active. Switch to Manual to override." else "Manual control is active."
                 Text(
                     text = helper,
                     style = MaterialTheme.typography.bodySmall,
