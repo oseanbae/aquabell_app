@@ -1,12 +1,14 @@
 package com.capstone.aquabell.ui
 
 import androidx.compose.animation.AnimatedContent
+import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.animation.slideInVertically
 import androidx.compose.animation.slideOutVertically
 import androidx.compose.animation.togetherWith
 import androidx.compose.foundation.BorderStroke
+import androidx.compose.foundation.border
 import androidx.compose.material3.Icon
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
@@ -22,6 +24,7 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -269,61 +272,6 @@ private fun SectionHeader(title: String) {
     )
 }
 
-// Helper function to determine status and color based on sensor thresholds
-private fun getSensorStatus(title: String, value: Double): Pair<String, Color> {
-    return when (title) {
-        "Air Temp." -> {
-            when {
-                value in 21.0..29.0 -> "Excellent" to Color(0xFF4CAF50)
-                value in 19.0..21.0 || value in 29.0..32.0 -> "Good" to Color(0xFF2196F3)
-                value in 17.0..19.0 || value in 32.0..35.0 -> "Caution" to Color(0xFFFF9800)
-                else -> "Critical" to Color(0xFFF44336)
-            }
-        }
-        "Air Humidity RH" -> {
-            when {
-                value in 60.0..70.0 -> "Excellent" to Color(0xFF4CAF50)
-                value in 50.0..60.0 || value in 70.0..80.0 -> "Good" to Color(0xFF2196F3)
-                value in 40.0..50.0 || value in 80.0..90.0 -> "Caution" to Color(0xFFFF9800)
-                else -> "Critical" to Color(0xFFF44336)
-            }
-        }
-        "Water Temp." -> {
-            when {
-                value in 24.0..28.0 -> "Excellent" to Color(0xFF4CAF50)
-                value in 22.0..24.0 || value in 28.0..30.0 -> "Good" to Color(0xFF2196F3)
-                value in 20.0..22.0 || value in 30.0..32.0 -> "Caution" to Color(0xFFFF9800)
-                else -> "Critical" to Color(0xFFF44336)
-            }
-        }
-        "pH Level" -> {
-            when {
-                value in 6.5..7.5 -> "Excellent" to Color(0xFF4CAF50)
-                value in 6.3..6.8 || value in 7.5..7.8 -> "Good" to Color(0xFF2196F3)
-                value < 6.3 || value in 7.8..8.2 -> "Caution" to Color(0xFFFF9800)
-                else -> "Critical" to Color(0xFFF44336)
-            }
-        }
-        "Dissolved Oxygen" -> {
-            when {
-                value >= 6.5 -> "Excellent" to Color(0xFF4CAF50)
-                value in 5.5..6.5 -> "Good" to Color(0xFF2196F3)
-                value in 4.0..5.5 -> "Caution" to Color(0xFFFF9800)
-                else -> "Critical" to Color(0xFFF44336)
-            }
-        }
-        "Turbidity Level" -> {
-            when {
-                value <= 50.0 -> "Excellent" to Color(0xFF4CAF50)
-                value in 51.0..120.0 -> "Good" to Color(0xFF2196F3)
-                value in 121.0..250.0 -> "Caution" to Color(0xFFFF9800)
-                else -> "Critical" to Color(0xFFF44336)
-            }
-        }
-        else -> "Unknown" to Color(0xFF9E9E9E)
-    }
-}
-
 @Composable
 fun DashboardGrid(live: com.capstone.aquabell.data.model.LiveDataSnapshot?) {
     val outline = MaterialTheme.colorScheme.outline
@@ -331,46 +279,46 @@ fun DashboardGrid(live: com.capstone.aquabell.data.model.LiveDataSnapshot?) {
     
     val metrics: List<MetricData> = listOf(
         MetricData(
-            "Air Temp.", 
-            if (live!=null) String.format("%.1f°C", live.airTemp) else "-", 
+            "Air Temp.",
+            if (live!=null) String.format("%.1f°C", live.airTemp) else "-",
             R.drawable.ic_thermometer,
-            if (live!=null) getSensorStatus("Air Temp.", live.airTemp).first else "Unknown",
-            if (live!=null) getSensorStatus("Air Temp.", live.airTemp).second else Color(0xFF9E9E9E)
+            if (live!=null) getSensorStatus("Air Temp", live.airTemp).label else "Unknown",
+            if (live!=null) getSensorStatus("Air Temp", live.airTemp).color else Color(0xFF9E9E9E)
         ),
         MetricData(
-            "Air Humidity RH", 
-            if (live!=null) String.format("%.0f%%", live.airHumidity) else "-", 
+            "Air Humidity RH",
+            if (live!=null) String.format("%.0f%%", live.airHumidity) else "-",
             R.drawable.ic_humidity,
-            if (live!=null) getSensorStatus("Air Humidity RH", live.airHumidity).first else "Unknown",
-            if (live!=null) getSensorStatus("Air Humidity RH", live.airHumidity).second else Color(0xFF9E9E9E)
+            if (live!=null) getSensorStatus("Humidity", live.airHumidity).label else "Unknown",
+            if (live!=null) getSensorStatus("Humidity", live.airHumidity).color else Color(0xFF9E9E9E)
         ),
         MetricData(
-            "Water Temp.", 
-            if (live!=null) String.format("%.1f°C", live.waterTemp) else "-", 
+            "Water Temp.",
+            if (live!=null) String.format("%.1f°C", live.waterTemp) else "-",
             R.drawable.ic_water_temp,
-            if (live!=null) getSensorStatus("Water Temp.", live.waterTemp).first else "Unknown",
-            if (live!=null) getSensorStatus("Water Temp.", live.waterTemp).second else Color(0xFF9E9E9E)
+            if (live!=null) getSensorStatus("Water Temp", live.waterTemp).label else "Unknown",
+            if (live!=null) getSensorStatus("Water Temp", live.waterTemp).color else Color(0xFF9E9E9E)
         ),
         MetricData(
-            "pH Level", 
-            if (live!=null) String.format("%.1f pH", live.pH) else "-", 
+            "pH Level",
+            if (live!=null) String.format("%.1f pH", live.pH) else "-",
             R.drawable.ic_ph,
-            if (live!=null) getSensorStatus("pH Level", live.pH).first else "Unknown",
-            if (live!=null) getSensorStatus("pH Level", live.pH).second else Color(0xFF9E9E9E)
+            if (live!=null) getSensorStatus("pH", live.pH).label else "Unknown",
+            if (live!=null) getSensorStatus("pH", live.pH).color else Color(0xFF9E9E9E)
         ),
         MetricData(
-            "Dissolved Oxygen", 
-            if (live!=null) String.format("%.1f mg/L", live.dissolvedOxygen) else "-", 
+            "Dissolved Oxygen",
+            if (live!=null) String.format("%.1f mg/L", live.dissolvedOxygen) else "-",
             R.drawable.ic_oxygen,
-            if (live!=null) getSensorStatus("Dissolved Oxygen", live.dissolvedOxygen).first else "Unknown",
-            if (live!=null) getSensorStatus("Dissolved Oxygen", live.dissolvedOxygen).second else Color(0xFF9E9E9E)
+            if (live!=null) getSensorStatus("Dissolved Oxygen", live.dissolvedOxygen).label else "Unknown",
+            if (live!=null) getSensorStatus("Dissolved Oxygen", live.dissolvedOxygen).color else Color(0xFF9E9E9E)
         ),
         MetricData(
-            "Turbidity Level", 
-            if (live!=null) String.format("%.0f NTU", live.turbidityNTU) else "-", 
+            "Turbidity Level",
+            if (live!=null) String.format("%.0f NTU", live.turbidityNTU) else "-",
             R.drawable.ic_turbidity,
-            if (live!=null) getSensorStatus("Turbidity Level", live.turbidityNTU).first else "Unknown",
-            if (live!=null) getSensorStatus("Turbidity Level", live.turbidityNTU).second else Color(0xFF9E9E9E)
+            if (live!=null) getSensorStatus("Turbidity", live.turbidityNTU).label else "Unknown",
+            if (live!=null) getSensorStatus("Turbidity", live.turbidityNTU).color else Color(0xFF9E9E9E)
         ),
     )
     
@@ -575,7 +523,7 @@ private fun MetricCard(
     borderColor: Color,
 ) {
     var showTooltip by remember { mutableStateOf(false) }
-    
+
     // Auto-hide tooltip after 3 seconds
     LaunchedEffect(showTooltip) {
         if (showTooltip) {
@@ -583,8 +531,7 @@ private fun MetricCard(
             showTooltip = false
         }
     }
-    
-    // Calculate adaptive font size based on value length
+
     val adaptiveFontSize = when {
         value.length <= 8 -> 18.sp
         value.length <= 12 -> 16.sp
@@ -594,7 +541,7 @@ private fun MetricCard(
     
     Box(
         modifier = modifier
-            .height(112.dp) // More compact height
+            .height(124.dp) // Allow room for status label
     ) {
         OutlinedCard(
             modifier = Modifier.fillMaxSize(),
@@ -690,17 +637,28 @@ private fun MetricCard(
                         text = title,
                         style = MaterialTheme.typography.bodyMedium.copy(fontSize = 14.sp, fontWeight = FontWeight.Medium),
                         color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.7f),
-                        maxLines = 2,
+                        maxLines = 1,
                         overflow = TextOverflow.Ellipsis,
                         textAlign = TextAlign.Center
                     )
                     Spacer(Modifier.height(4.dp))
-                    Text(
-                        text = status,
-                        style = MaterialTheme.typography.labelMedium.copy(fontWeight = FontWeight.SemiBold),
-                        color = borderColor, // Use the status color from the border
-                        textAlign = TextAlign.Center
-                    )
+                    // Status chip for clear visibility
+                    val bgColor = borderColor.copy(alpha = 0.15f)
+                    Box(
+                        modifier = Modifier
+                            .clip(RoundedCornerShape(8.dp))
+                            .background(bgColor)
+                            .padding(horizontal = 8.dp, vertical = 2.dp)
+                    ) {
+                        Text(
+                            text = status,
+                            style = MaterialTheme.typography.labelMedium.copy(fontWeight = FontWeight.SemiBold),
+                            color = borderColor,
+                            textAlign = TextAlign.Center,
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis
+                        )
+                    }
                 }
             }
         }
@@ -755,36 +713,75 @@ private fun MetricCard(
     }
 }
 
-// Helper function to determine system status based on sensor readings
-fun getSystemStatus(live: com.capstone.aquabell.data.model.LiveDataSnapshot?): Pair<String, Color> {
-    if (live == null) return "Unknown" to Color(0xFF9E9E9E)
+data class SensorStatus(
+    val label: String,
+    val color: Color
+)
 
-    // Check all critical parameters
-    val criticalCount = listOf(
-        live.airTemp < 17 || live.airTemp > 35,
-        live.airHumidity < 40 || live.airHumidity > 90,
-        live.waterTemp < 20 || live.waterTemp > 32,
-        live.pH < 6.0 || live.pH > 8.5,
-        live.dissolvedOxygen < 4.0,
-        live.turbidityNTU > 250
-    ).count { it }
+// Define the colors for clarity and reuse
+// Assuming Color is a type from a library like androidx.compose.ui.graphics.Color or a custom type.
+// I'll keep the original hex values as they are a reasonable representation.
+val Green = Color(0xFF00C853) // Excellent
+val Blue = Color(0xFF2962FF)  // Good / Acceptable
+val Orange = Color(0xFFFFA000) // Caution
+val Red = Color(0xFFD50000)   // Critical
+val Gray = Color.Gray         // Unknown
 
-    val cautionCount = listOf(
-        (live.airTemp in 17.0..19.0) || (live.airTemp in 32.0..35.0),
-        (live.airHumidity in 40.0..50.0) || (live.airHumidity in 80.0..90.0),
-        (live.waterTemp in 20.0..22.0) || (live.waterTemp in 30.0..32.0),
-        (live.pH < 6.3) || (live.pH in 7.8..8.2),
-        live.dissolvedOxygen in 4.0..5.5,
-        live.turbidityNTU in 121.0..250.0
-    ).count { it }
+fun getSensorStatus(parameter: String, value: Double): SensorStatus {
+    return when (parameter) {
+        "Turbidity" -> when {
+            value <= 50 -> SensorStatus("Excellent", Green)
+            value <= 120 -> SensorStatus("Acceptable", Blue) // 51-120
+            value <= 250 -> SensorStatus("Caution", Orange)          // 121-250
+            else -> SensorStatus("Critical", Red)                    // >250
+        }
 
-    return when {
-        criticalCount > 0 -> "Critical" to Color(0xFFF44336)
-        cautionCount > 0 -> "Caution" to Color(0xFFFF9800)
-        else -> "Good" to Color(0xFF4CAF50)
+        "pH" -> when {
+            value in 6.5..7.5 -> SensorStatus("Excellent", Green)
+            // 6.3–6.5 (exclusive of 6.5) or 7.5 (exclusive of 7.5) – 7.8
+            value in 6.3..<6.5 || value in 7.5..7.8 -> SensorStatus("Acceptable", Blue)
+            // <6.3 or >7.8 – 8.2 (Using exclusive ranges for clarity with the Good range)
+            value < 6.3 || value in 7.8..8.2 -> SensorStatus("Caution", Orange)
+            else -> SensorStatus("Critical", Red) // <6.0 or >8.2 (Since values in the range 6.0-8.2 are covered by the other cases)
+        }
+
+        "Dissolved Oxygen" -> when {
+            value >= 6.5 -> SensorStatus("Excellent", Green)
+            value >= 5.5 -> SensorStatus("Good / Acceptable", Blue) // 5.5–6.5
+            value >= 4.0 -> SensorStatus("Caution", Orange)          // 4.0–5.5
+            else -> SensorStatus("Critical", Red)                    // <4.0
+        }
+
+        "Water Temp" -> when {
+            value in 24.0..28.0 -> SensorStatus("Excellent", Green)
+            // 22–24 (exclusive of 24) or 28 (exclusive of 28) – 30
+            value in 22.0..<24.0 || value in 28.0..30.0 -> SensorStatus("Good / Acceptable", Blue)
+            // 20–22 (exclusive of 22) or 30 (exclusive of 30) – 32
+            value in 20.0..<22.0 || value in 30.0..32.0 -> SensorStatus("Caution", Orange)
+            else -> SensorStatus("Critical", Red) // <20 or >32
+        }
+
+        "Air Temp" -> when {
+            value in 21.0..29.0 -> SensorStatus("Excellent", Green)
+            // 19–21 (exclusive of 21) or 29 (exclusive of 29) – 32
+            value in 19.0..<21.0 || value in 29.0..32.0 -> SensorStatus("Acceptable", Blue)
+            // 17–19 (exclusive of 19) or 32 (exclusive of 32) – 35
+            value in 17.0..<19.0 || value in 32.0..35.0 -> SensorStatus("Caution", Orange)
+            else -> SensorStatus("Critical", Red) // <17 or >35
+        }
+
+        "Humidity" -> when {
+            value in 60.0..70.0 -> SensorStatus("Excellent", Green)
+            // 50–60 (exclusive of 60) or 70 (exclusive of 70) – 80
+            value in 50.0..<60.0 || value in 70.0..80.0 -> SensorStatus("Acceptable", Blue)
+            // 40–50 (exclusive of 50) or 80 (exclusive of 80) – 90
+            value in 40.0..<50.0 || value in 80.0..90.0 -> SensorStatus("Caution", Orange)
+            else -> SensorStatus("Critical", Red) // <40 or >90
+        }
+
+        else -> SensorStatus("Unknown", Gray)
     }
 }
-
 @Composable
 private fun ControlHeader() {
     Column(
@@ -1092,33 +1089,30 @@ private fun PerActuatorControlGrid(
 
     @Composable
     fun ActuatorTile(tile: Tile, modifier: Modifier = Modifier) {
-        // Local isAuto state with Firebase as source of truth
         var isAuto by remember(tile.key) { mutableStateOf(tile.mode == ControlMode.AUTO) }
         LaunchedEffect(tile.mode) { isAuto = tile.mode == ControlMode.AUTO }
 
         val enabled = !isAuto
         val isActive = tile.active && enabled
-        val border = if (isActive) tile.accent else outline
+        val border = if (isActive) tile.accent else MaterialTheme.colorScheme.outline
         val enabledContainer = if (isActive) tile.accent.copy(alpha = 0.18f) else MaterialTheme.colorScheme.surface
         val container = if (enabled) enabledContainer else enabledContainer.copy(alpha = 0.6f)
-        
-        // Get system status
-        val (statusText, statusColor) = getSystemStatus(live)
 
         OutlinedCard(
-            modifier = modifier
-                .height(148.dp),
+            modifier = modifier.height(148.dp),
             shape = RoundedCornerShape(16.dp),
             colors = CardDefaults.cardColors(containerColor = container),
             border = BorderStroke(1.dp, border)
         ) {
+            // ✅ Center all elements vertically, no space-between
             Column(
                 modifier = Modifier
                     .fillMaxSize()
                     .padding(12.dp),
-                verticalArrangement = Arrangement.SpaceBetween
+                horizontalAlignment = Alignment.CenterHorizontally,
+                verticalArrangement = Arrangement.Center
             ) {
-                // Top row: Title and Mode switch
+                // Title row
                 Row(
                     modifier = Modifier.fillMaxWidth(),
                     horizontalArrangement = Arrangement.SpaceBetween,
@@ -1142,10 +1136,9 @@ private fun PerActuatorControlGrid(
                         Switch(
                             checked = isAuto,
                             onCheckedChange = { checked ->
-                                // Optimistic update, then push to Firebase
                                 isAuto = checked
                                 val next = if (checked) ControlMode.AUTO else ControlMode.MANUAL
-                                onSetActuatorMode(tile.key, next)
+                                tile.onToggleMode()
                             },
                             modifier = Modifier.scale(0.9f),
                             colors = SwitchDefaults.colors(
@@ -1158,54 +1151,55 @@ private fun PerActuatorControlGrid(
                     }
                 }
 
-                // Center: Icon and Status
+                Spacer(Modifier.height(8.dp))
+
+                // ✅ Centered Icon + Status
                 Column(
                     horizontalAlignment = Alignment.CenterHorizontally,
                     verticalArrangement = Arrangement.Center
                 ) {
                     Box(
                         modifier = Modifier
-                            .size(72.dp)
+                            .size(80.dp)
                             .clip(RoundedCornerShape(20.dp))
                             .background(
-                                if (isActive) tile.accent.copy(alpha = 0.12f)
-                                else MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f)
+                                if (isActive) tile.accent.copy(alpha = 0.15f)
+                                else MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.4f)
                             )
-                                .clickable(enabled = enabled) { tile.onToggleValue() },
+                            .clickable(enabled = enabled) { tile.onToggleValue() },
                         contentAlignment = Alignment.Center
                     ) {
-                        val tint = if (isActive) tile.accent else MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f)
+                        val tint = if (isActive) tile.accent else MaterialTheme.colorScheme.onSurface.copy(alpha = 0.7f)
                         Icon(
                             painter = painterResource(id = tile.iconRes),
-                            contentDescription = null,
+                            contentDescription = tile.title,
                             tint = tint,
-                            modifier = Modifier.size(38.dp)
+                            modifier = Modifier.size(42.dp)
                         )
                     }
-                    
-                    Spacer(Modifier.height(8.dp))
-                    
+
+                    Spacer(Modifier.height(10.dp))
+
                     Text(
                         text = if (tile.active) "On" else "Off",
                         style = MaterialTheme.typography.labelLarge.copy(fontWeight = FontWeight.Medium),
                         color = if (isActive) tile.accent else MaterialTheme.colorScheme.onSurface.copy(alpha = 0.7f)
                     )
-                    
-                    Spacer(Modifier.height(4.dp))
-                    
-                    Text(
-                        text = statusText,
-                        style = MaterialTheme.typography.labelMedium.copy(fontWeight = FontWeight.SemiBold),
-                        color = statusColor
-                    )
                 }
 
-                // Bottom: Helper text
-                val helper = if (isAuto) "Automatic control is active. Switch to Manual to override." else "Manual control is active."
+                Spacer(Modifier.height(8.dp))
+
+                // Helper text
+                val helper = if (isAuto)
+                    "Automatic control is active."
+                else
+                    "Manual control is active."
                 Text(
                     text = helper,
                     style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.65f)
+                    color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.65f),
+                    textAlign = TextAlign.Center,
+                    modifier = Modifier.fillMaxWidth()
                 )
             }
         }
