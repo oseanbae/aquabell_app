@@ -14,7 +14,6 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
-import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
@@ -59,6 +58,7 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.scale
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
@@ -108,7 +108,7 @@ fun HomeScreen(modifier: Modifier = Modifier) {
                     onSetActuatorMode = { actuator, mode -> vm.setActuatorMode(actuator, mode) },
                     onSetActuatorValue = { actuator, value -> vm.setActuatorValue(actuator, value) }
                 )
-                else -> AlertsScreen(modifier = Modifier.padding(inner))
+                else ->  AlertsScreen(modifier = Modifier.padding(inner))
             }
         }
     }
@@ -323,12 +323,11 @@ fun DashboardGrid(live: com.capstone.aquabell.data.model.LiveDataSnapshot?) {
     )
     
     // Responsive grid layout (denser spacing for compactness)
-    BoxWithConstraints(
-        modifier = Modifier.fillMaxWidth()
-    ) {
-        val screenWidth = maxWidth
-        val isTablet = screenWidth > 600.dp
-        
+    run {
+        val configuration = LocalConfiguration.current
+        val screenWidthDp = configuration.screenWidthDp.dp
+        val isTablet = screenWidthDp > 600.dp
+
         if (isTablet) {
             // Tablet layout: 3 columns
             Column(
@@ -541,7 +540,7 @@ private fun MetricCard(
     
     Box(
         modifier = modifier
-            .height(124.dp) // Allow room for status label
+            .height(140.dp) // Extra room to always show status chip
     ) {
         OutlinedCard(
             modifier = Modifier.fillMaxSize(),
