@@ -11,9 +11,9 @@ import com.google.firebase.database.ValueEventListener
 import com.google.firebase.database.DataSnapshot
 import com.google.firebase.database.DatabaseError
 import kotlinx.coroutines.channels.awaitClose
-import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.callbackFlow
+import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.tasks.await
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.delay
@@ -443,6 +443,156 @@ class FirebaseRepository(
     private suspend fun signInAnonymouslyAwait(): AuthResult {
         val task = auth.signInAnonymously()
         return task.awaitTask()
+    }
+
+    // Analytics methods
+    suspend fun getDailyLogs(): List<DailyAnalytics> {
+        return try {
+            ensureAuth()
+            val today = java.text.SimpleDateFormat("yyyy-MM-dd", java.util.Locale.getDefault()).format(java.util.Date())
+            
+            // Fetch from daily_logs collection
+            val dailyLogsCollection = db.collection("daily_logs")
+            val querySnapshot = dailyLogsCollection
+                .whereLessThan("date", today) // Only historical data, not today
+                .orderBy("date", com.google.firebase.firestore.Query.Direction.DESCENDING)
+                .limit(30) // Last 30 days
+                .get(com.google.firebase.firestore.Source.SERVER)
+                .await()
+
+            querySnapshot.documents.mapNotNull { doc ->
+                try {
+                    val data = doc.data ?: return@mapNotNull null
+                    DailyAnalytics(
+                        date = data["date"] as? String ?: "",
+                        airTemp = (data["airTemp"] as? Number)?.toDouble() ?: 0.0,
+                        airHumidity = (data["airHumidity"] as? Number)?.toDouble() ?: 0.0,
+                        waterTemp = (data["waterTemp"] as? Number)?.toDouble() ?: 0.0,
+                        pH = (data["pH"] as? Number)?.toDouble() ?: 0.0,
+                        dissolvedOxygen = (data["dissolvedOxygen"] as? Number)?.toDouble() ?: 0.0,
+                        turbidityNTU = (data["turbidityNTU"] as? Number)?.toDouble() ?: 0.0,
+                        timestamp = data["timestamp"] as? com.google.firebase.Timestamp ?: com.google.firebase.Timestamp.now(),
+                        isLive = false
+                    )
+                } catch (e: Exception) {
+                    Log.e(TAG, "Error parsing daily log document: ${e.message}", e)
+                    null
+                }
+            }
+        } catch (e: Exception) {
+            Log.e(TAG, "Error fetching daily logs: ${e.message}", e)
+            emptyList()
+        }
+    }
+
+    suspend fun getTodaySensorLogs(): List<SensorLog> {
+        return try {
+            ensureAuth()
+            val today = java.text.SimpleDateFormat("yyyy-MM-dd", java.util.Locale.getDefault()).format(java.util.Date())
+            
+            // Fetch from sensor_logs/{today}/entries
+            val sensorLogsCollection = db.collection("sensor_logs").document(today).collection("entries")
+            val querySnapshot = sensorLogsCollection
+                .orderBy("timestamp", com.google.firebase.firestore.Query.Direction.DESCENDING)
+                .limit(144) // 24 hours * 6 entries per hour (10-minute intervals)
+                .get(com.google.firebase.firestore.Source.SERVER)
+                .await()
+
+            querySnapshot.documents.mapNotNull { doc ->
+                try {
+                    val data = doc.data ?: return@mapNotNull null
+                    SensorLog(
+                        waterTemp = (data["waterTemp"] as? Number)?.toDouble() ?: 0.0,
+                        pH = (data["pH"] as? Number)?.toDouble() ?: 0.0,
+                        dissolvedOxygen = (data["dissolvedOxygen"] as? Number)?.toDouble() ?: 0.0,
+                        turbidityNTU = (data["turbidityNTU"] as? Number)?.toDouble() ?: 0.0,
+                        airTemp = (data["airTemp"] as? Number)?.toDouble() ?: 0.0,
+                        airHumidity = (data["airHumidity"] as? Number)?.toDouble() ?: 0.0,
+                        floatTriggered = (data["floatTriggered"] as? Boolean) ?: false,
+                        timestamp = data["timestamp"] as? com.google.firebase.Timestamp ?: com.google.firebase.Timestamp.now()
+                    )
+                } catch (e: Exception) {
+                    Log.e(TAG, "Error parsing sensor log document: ${e.message}", e)
+                    null
+                }
+            }
+        } catch (e: Exception) {
+            Log.e(TAG, "Error fetching today's sensor logs: ${e.message}", e)
+            emptyList()
+        }
+    }
+
+    fun observeTodaySensorLogs(): Flow<List<SensorLog>> = callbackFlow {
+        try {
+            repoScope.launch { ensureAuth() }
+            val today = java.text.SimpleDateFormat("yyyy-MM-dd", java.util.Locale.getDefault()).format(java.util.Date())
+            val ref = db.collection("sensor_logs").document(today).collection("entries")
+                .orderBy("timestamp", com.google.firebase.firestore.Query.Direction.DESCENDING)
+
+            val registration = ref.addSnapshotListener { snapshot, error ->
+                if (error != null) {
+                    Log.e(TAG, "Snapshot listener error for today logs: ${error.message}", error)
+                    trySend(emptyList()).isSuccess
+                    return@addSnapshotListener
+                }
+                if (snapshot == null) {
+                    trySend(emptyList()).isSuccess
+                    return@addSnapshotListener
+                }
+                val logs: List<SensorLog> = snapshot.documents.mapNotNull { doc ->
+                    try {
+                        val data = doc.data ?: return@mapNotNull null
+                        SensorLog(
+                            waterTemp = (data["waterTemp"] as? Number)?.toDouble() ?: 0.0,
+                            pH = (data["pH"] as? Number)?.toDouble() ?: 0.0,
+                            dissolvedOxygen = (data["dissolvedOxygen"] as? Number)?.toDouble() ?: 0.0,
+                            turbidityNTU = (data["turbidityNTU"] as? Number)?.toDouble() ?: 0.0,
+                            airTemp = (data["airTemp"] as? Number)?.toDouble() ?: 0.0,
+                            airHumidity = (data["airHumidity"] as? Number)?.toDouble() ?: 0.0,
+                            floatTriggered = (data["floatTriggered"] as? Boolean) ?: false,
+                            timestamp = data["timestamp"] as? com.google.firebase.Timestamp ?: com.google.firebase.Timestamp.now()
+                        )
+                    } catch (t: Throwable) {
+                        Log.w(TAG, "Failed to parse sensor log: ${t.message}")
+                        null
+                    }
+                }
+                trySend(logs).isSuccess
+                connectionState.tryEmit(ConnectionState.CONNECTED)
+            }
+
+            awaitClose { registration.remove() }
+        } catch (t: Throwable) {
+            Log.e(TAG, "observeTodaySensorLogs setup failed: ${t.message}", t)
+            trySend(emptyList()).isSuccess
+            awaitClose { /* no-op */ }
+        }
+    }
+
+    suspend fun saveDailyAnalytics(analytics: DailyAnalytics) {
+        try {
+            ensureAuth()
+            val dailyLogsCollection = db.collection("daily_logs")
+            val documentId = analytics.date
+            
+            val data = mapOf(
+                "date" to analytics.date,
+                "airTemp" to analytics.airTemp,
+                "airHumidity" to analytics.airHumidity,
+                "waterTemp" to analytics.waterTemp,
+                "pH" to analytics.pH,
+                "dissolvedOxygen" to analytics.dissolvedOxygen,
+                "turbidityNTU" to analytics.turbidityNTU,
+                "timestamp" to analytics.timestamp,
+                "isLive" to analytics.isLive
+            )
+            
+            dailyLogsCollection.document(documentId).set(data).await()
+            Log.d(TAG, "Successfully saved daily analytics for ${analytics.date}")
+        } catch (e: Exception) {
+            Log.e(TAG, "Error saving daily analytics: ${e.message}", e)
+            throw e
+        }
     }
 }
 // Convenience overload using repository deviceId

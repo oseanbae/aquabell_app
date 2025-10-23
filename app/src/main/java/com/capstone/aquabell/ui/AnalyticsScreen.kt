@@ -1,292 +1,594 @@
 package com.capstone.aquabell.ui
 
+import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.animation.core.tween
+import androidx.compose.animation.expandVertically
+import androidx.compose.animation.shrinkVertically
+import androidx.compose.animation.animateColorAsState
 import androidx.compose.foundation.BorderStroke
-import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
-import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.height
-import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.rememberScrollState
-import androidx.compose.foundation.verticalScroll
+import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.material3.CardDefaults
-import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.OutlinedCard
-import androidx.compose.material3.Text
-import androidx.compose.runtime.Composable
-import androidx.compose.runtime.LaunchedEffect
-import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.remember
-import androidx.compose.runtime.setValue
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.ArrowDropDown
+import androidx.compose.material.icons.filled.Refresh
+import androidx.compose.material3.*
+import androidx.compose.runtime.*
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.graphics.Path
-import androidx.compose.ui.graphics.StrokeCap
-import androidx.compose.ui.graphics.StrokeJoin
-import androidx.compose.ui.graphics.drawscope.Stroke
-import androidx.compose.ui.unit.dp
+import androidx.compose.ui.draw.rotate
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalConfiguration
+import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
-import com.capstone.aquabell.data.FirebaseRepository
-import com.capstone.aquabell.data.model.SensorLog
-import kotlinx.coroutines.flow.collectLatest
-import java.time.Instant
-import java.time.ZoneId
-import java.time.format.DateTimeFormatter
+import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
+import androidx.lifecycle.viewmodel.compose.viewModel
+import com.capstone.aquabell.R
+import com.capstone.aquabell.data.model.*
+import com.capstone.aquabell.ui.theme.AquabellTheme
+import com.capstone.aquabell.ui.viewmodel.AnalyticsViewModel
+import java.text.SimpleDateFormat
+import java.util.*
 
 @Composable
 fun AnalyticsScreen(modifier: Modifier = Modifier) {
-    val outline = MaterialTheme.colorScheme.outline
-    val primary = MaterialTheme.colorScheme.primary
-    val repo = remember { FirebaseRepository() }
-    var logs by remember { mutableStateOf<List<SensorLog>>(emptyList()) }
-    var interval by remember { mutableStateOf(AnalyticsInterval.FIVE_MIN) }
+    val viewModel: AnalyticsViewModel = viewModel()
+    val uiState by viewModel.uiState.collectAsState()
+    val sortOrder by viewModel.sortOrder.collectAsState()
 
-    LaunchedEffect(Unit) {
-        repo.sensorLogs().collectLatest { logs = it }
-    }
+    AquabellTheme {
+        Column(
+            modifier = modifier
+                .fillMaxSize()
+                .background(MaterialTheme.colorScheme.surface)
+                .padding(horizontal = 16.dp, vertical = 12.dp),
+            verticalArrangement = Arrangement.spacedBy(16.dp)
+        ) {
+            // Header with title and controls
+            AnalyticsHeader(
+                isLoading = uiState.isLoading,
+                sortOrder = sortOrder,
+                onToggleSort = { viewModel.toggleSortOrder() },
+                onRefresh = { viewModel.refresh() }
+            )
 
-    val bucketMillis = when (interval) {
-        AnalyticsInterval.FIVE_MIN -> 5L * 60L * 1000L
-        AnalyticsInterval.HOURLY -> 60L * 60L * 1000L
-    }
+            // Error state
+            uiState.error?.let { error ->
+                ErrorCard(error = error)
+            }
 
-    val zone = remember { ZoneId.systemDefault() }
-    val timeFormatter = remember(interval) {
-        DateTimeFormatter.ofPattern(if (interval == AnalyticsInterval.FIVE_MIN) "HH:mm" else "HH:00")
-    }
-
-    val buckets = logs
-        .groupBy { log ->
-            val millis = log.timestamp.seconds * 1000L + log.timestamp.nanoseconds / 1_000_000L
-            (millis / bucketMillis) * bucketMillis
+            // Loading state
+            if (uiState.isLoading && uiState.dailyAnalytics.isEmpty()) {
+                LoadingCard()
+            } else {
+                // Analytics content
+                AnalyticsContent(
+                    dailyAnalytics = uiState.dailyAnalytics,
+                    sortOrder = sortOrder
+                )
+            }
         }
-        .toSortedMap()
-
-    val labels = buckets.keys.map { keyMillis ->
-        val dt = Instant.ofEpochMilli(keyMillis).atZone(zone).toLocalDateTime()
-        timeFormatter.format(dt)
     }
+}
 
-    fun List<SensorLog>.avg(selector: (SensorLog) -> Double): Float {
-        if (isEmpty()) return 0f
-        var sum = 0.0
-        for (item in this) sum += selector(item)
-        return (sum / size).toFloat()
-    }
-
-    val airTempC = buckets.values.map { it.avg { s -> s.airTemp } }
-    val airHumidity = buckets.values.map { it.avg { s -> s.airHumidity } }
-    val waterTempC = buckets.values.map { it.avg { s -> s.waterTemp } }
-    val phLevel = buckets.values.map { it.avg { s -> s.pH } }
-    val dissolvedOxygen = buckets.values.map { it.avg { s -> s.dissolvedOxygen } }
-    val turbidity = buckets.values.map { it.avg { s -> s.turbidityNTU } }
-
-    Column(
-        modifier = modifier
-            .fillMaxSize()
-            .background(MaterialTheme.colorScheme.surface)
-            .padding(horizontal = 16.dp, vertical = 12.dp)
-            .verticalScroll(rememberScrollState()),
-        verticalArrangement = Arrangement.spacedBy(16.dp)
+@Composable
+private fun AnalyticsHeader(
+    isLoading: Boolean,
+    sortOrder: SortOrder,
+    onToggleSort: () -> Unit,
+    onRefresh: () -> Unit
+) {
+    Row(
+        modifier = Modifier.fillMaxWidth(),
+        horizontalArrangement = Arrangement.SpaceBetween,
+        verticalAlignment = Alignment.CenterVertically
     ) {
         Text(
             text = "Analytics",
-            style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold)
+            style = MaterialTheme.typography.titleLarge.copy(fontWeight = FontWeight.Bold)
         )
-
-        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-            IntervalChip(
-                label = "5 min",
-                selected = interval == AnalyticsInterval.FIVE_MIN,
-                onClick = { interval = AnalyticsInterval.FIVE_MIN },
-                outline = outline
-            )
-            IntervalChip(
-                label = "Hourly",
-                selected = interval == AnalyticsInterval.HOURLY,
-                onClick = { interval = AnalyticsInterval.HOURLY },
-                outline = outline
-            )
+        
+        Row(
+            horizontalArrangement = Arrangement.spacedBy(8.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            // Sort toggle button
+            OutlinedButton(
+                onClick = onToggleSort,
+                modifier = Modifier.height(36.dp)
+            ) {
+                Text(
+                    text = if (sortOrder == SortOrder.NEWEST_FIRST) "Newest ↓" else "Oldest ↑",
+                    style = MaterialTheme.typography.labelMedium
+                )
+            }
+            
+            // Refresh button
+            IconButton(
+                onClick = onRefresh,
+                enabled = !isLoading
+            ) {
+                Icon(
+                    imageVector = Icons.Default.Refresh,
+                    contentDescription = "Refresh",
+                    modifier = Modifier.rotate(if (isLoading) 180f else 0f)
+                )
+            }
         }
+    }
+}
 
-        LineChartCard(
-            title = "Air Temperature (°C)",
-            labels = labels,
-            values = airTempC,
-            lineColor = primary,
-            outline = outline
+@Composable
+private fun AnalyticsContent(
+    dailyAnalytics: List<DailyAnalytics>,
+    sortOrder: SortOrder
+) {
+    if (dailyAnalytics.isEmpty()) {
+        EmptyStateCard()
+    } else {
+        LazyColumn(
+            verticalArrangement = Arrangement.spacedBy(12.dp)
+        ) {
+            items(dailyAnalytics) { dailyData ->
+                AnalyticsAccordionCard(dailyData = dailyData)
+            }
+            item { Spacer(Modifier.height(8.dp)) }
+        }
+    }
+}
+
+@Composable
+private fun AnalyticsAccordionCard(dailyData: DailyAnalytics) {
+    var isExpanded by remember { mutableStateOf(false) }
+    val rotationAngle by animateFloatAsState(
+        targetValue = if (isExpanded) 180f else 0f,
+        animationSpec = tween(300),
+        label = "arrow_rotation"
+    )
+
+    OutlinedCard(
+        modifier = Modifier.fillMaxWidth(),
+        shape = RoundedCornerShape(16.dp),
+        colors = CardDefaults.cardColors(
+            containerColor = MaterialTheme.colorScheme.surface
+        ),
+        border = BorderStroke(
+            width = 1.dp,
+            color = if (dailyData.isLive) {
+                MaterialTheme.colorScheme.primary.copy(alpha = 0.3f)
+            } else {
+                MaterialTheme.colorScheme.outline
+            }
         )
+    ) {
+        Column {
+            // Header - clickable to expand/collapse
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .clickable { isExpanded = !isExpanded }
+                    .padding(16.dp),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(12.dp)
+                ) {
+                    // Date icon
+                    Box(
+                        modifier = Modifier
+                            .size(40.dp)
+                            .clip(CircleShape)
+                            .background(
+                                if (dailyData.isLive) {
+                                    MaterialTheme.colorScheme.primary.copy(alpha = 0.15f)
+                                } else {
+                                    MaterialTheme.colorScheme.surfaceVariant
+                                }
+                            ),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Text(
+                            text = "📅",
+                            fontSize = 20.sp
+                        )
+                    }
+                    
+                    Column {
+                        Text(
+                            text = formatDate(dailyData.date),
+                            style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold)
+                        )
+                        if (dailyData.isLive) {
+                            LiveIndicator()
+                        }
+                    }
+                }
+                
+                // Expand arrow
+                Icon(
+                    imageVector = Icons.Default.ArrowDropDown,
+                    contentDescription = if (isExpanded) "Collapse" else "Expand",
+                    modifier = Modifier.rotate(rotationAngle),
+                    tint = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f)
+                )
+            }
+            
+            // Expanded content
+            AnimatedVisibility(
+                visible = isExpanded,
+                enter = expandVertically(animationSpec = tween(300)),
+                exit = shrinkVertically(animationSpec = tween(300))
+            ) {
+                Column(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = 16.dp, vertical = 8.dp),
+                    verticalArrangement = Arrangement.spacedBy(12.dp)
+                ) {
+                    // Sensor metrics
+                    SensorMetricsGrid(dailyData = dailyData)
+                }
+            }
+        }
+    }
+}
 
-        LineChartCard(
-            title = "Air Humidity (%)",
-            labels = labels,
-            values = airHumidity,
-            lineColor = MaterialTheme.colorScheme.tertiary,
-            outline = outline
+@Composable
+private fun LiveIndicator() {
+    Row(
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(4.dp)
+    ) {
+        Box(
+            modifier = Modifier
+                .size(8.dp)
+                .clip(CircleShape)
+                .background(MaterialTheme.colorScheme.primary)
         )
-
-        LineChartCard(
-            title = "Water Temperature (°C)",
-            labels = labels,
-            values = waterTempC,
-            lineColor = MaterialTheme.colorScheme.primary,
-            outline = outline
-        )
-
-        LineChartCard(
-            title = "pH Level",
-            labels = labels,
-            values = phLevel,
-            lineColor = MaterialTheme.colorScheme.secondary,
-            outline = outline
-        )
-
-        LineChartCard(
-            title = "Dissolved Oxygen (mg/L)",
-            labels = labels,
-            values = dissolvedOxygen,
-            lineColor = MaterialTheme.colorScheme.primary.copy(alpha = 0.85f),
-            outline = outline
-        )
-
-        LineChartCard(
-            title = "Turbidity (NTU)",
-            labels = labels,
-            values = turbidity,
-            lineColor = MaterialTheme.colorScheme.secondary.copy(alpha = 0.9f),
-            outline = outline
+        Text(
+            text = "Live (Updating)",
+            style = MaterialTheme.typography.labelSmall,
+            color = MaterialTheme.colorScheme.primary
         )
     }
 }
 
 @Composable
-private fun LineChartCard(
-    title: String,
-    labels: List<String>,
-    values: List<Float>,
-    lineColor: androidx.compose.ui.graphics.Color,
-    outline: androidx.compose.ui.graphics.Color,
-    modifier: Modifier = Modifier
+private fun SensorMetricsGrid(dailyData: DailyAnalytics) {
+    val metrics = listOf(
+        SensorMetric(
+            label = "Air Temperature",
+            value = dailyData.airTemp,
+            unit = "°C",
+            status = calculateSensorStatus("Air Temp", dailyData.airTemp),
+            iconRes = R.drawable.ic_thermometer
+        ),
+        SensorMetric(
+            label = "Air Humidity",
+            value = dailyData.airHumidity,
+            unit = "%",
+            status = calculateSensorStatus("Humidity", dailyData.airHumidity),
+            iconRes = R.drawable.ic_humidity
+        ),
+        SensorMetric(
+            label = "Water Temperature",
+            value = dailyData.waterTemp,
+            unit = "°C",
+            status = calculateSensorStatus("Water Temp", dailyData.waterTemp),
+            iconRes = R.drawable.ic_water_temp
+        ),
+        SensorMetric(
+            label = "pH Level",
+            value = dailyData.pH,
+            unit = "pH",
+            status = calculateSensorStatus("pH", dailyData.pH),
+            iconRes = R.drawable.ic_ph
+        ),
+        SensorMetric(
+            label = "Dissolved Oxygen",
+            value = dailyData.dissolvedOxygen,
+            unit = "mg/L",
+            status = calculateSensorStatus("Dissolved Oxygen", dailyData.dissolvedOxygen),
+            iconRes = R.drawable.ic_oxygen
+        ),
+        SensorMetric(
+            label = "Turbidity",
+            value = dailyData.turbidityNTU,
+            unit = "NTU",
+            status = calculateSensorStatus("Turbidity", dailyData.turbidityNTU),
+            iconRes = R.drawable.ic_turbidity
+        )
+    )
+
+    Column(
+        verticalArrangement = Arrangement.spacedBy(8.dp)
+    ) {
+        metrics.forEach { metric ->
+            SensorMetricRow(metric = metric)
+        }
+    }
+}
+
+@Composable
+private fun SensorMetricRow(metric: SensorMetric) {
+    Row(
+        modifier = Modifier.fillMaxWidth(),
+        horizontalArrangement = Arrangement.SpaceBetween,
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        // Icon and label
+        Row(
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(12.dp)
+        ) {
+            Icon(
+                painter = painterResource(id = metric.iconRes),
+                contentDescription = metric.label,
+                modifier = Modifier.size(20.dp),
+                tint = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.7f)
+            )
+            
+            Text(
+                text = metric.label,
+                style = MaterialTheme.typography.bodyMedium,
+                color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.8f)
+            )
+        }
+        
+        // Value and status
+        Column(
+            horizontalAlignment = Alignment.End,
+            verticalArrangement = Arrangement.spacedBy(4.dp)
+        ) {
+            Text(
+                text = "${String.format("%.1f", metric.value)} ${metric.unit}",
+                style = MaterialTheme.typography.bodyMedium.copy(fontWeight = FontWeight.Medium),
+                color = MaterialTheme.colorScheme.onSurface
+            )
+            
+            // Status chip
+            Box(
+                modifier = Modifier
+                    .clip(RoundedCornerShape(8.dp))
+                    .background(metric.status.color.copy(alpha = 0.15f))
+                    .padding(horizontal = 8.dp, vertical = 2.dp)
+            ) {
+                Text(
+                    text = metric.status.label,
+                    style = MaterialTheme.typography.labelSmall,
+                    color = metric.status.color
+                )
+            }
+        }
+    }
+    
+    // Animated progress bar
+    AnimatedSensorBar(
+        progress = metric.status.progress,
+        color = metric.status.color
+    )
+}
+
+@Composable
+private fun AnimatedSensorBar(
+    progress: Float,
+    color: Color
 ) {
-    OutlinedCard(
-        modifier = modifier
+    val animatedProgress by animateFloatAsState(
+        targetValue = progress,
+        animationSpec = tween(800),
+        label = "progress_animation"
+    )
+    
+    val animatedColor by animateColorAsState(
+        targetValue = color,
+        animationSpec = tween(800),
+        label = "color_animation"
+    )
+
+    Box(
+        modifier = Modifier
             .fillMaxWidth()
-            .height(240.dp),
-        shape = RoundedCornerShape(16.dp),
-        border = BorderStroke(1.dp, outline),
-        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)
+            .height(6.dp)
+            .clip(RoundedCornerShape(3.dp))
+            .background(MaterialTheme.colorScheme.outline.copy(alpha = 0.2f))
+    ) {
+        Box(
+            modifier = Modifier
+                .fillMaxWidth(animatedProgress)
+                .fillMaxHeight()
+                .background(animatedColor)
+        )
+    }
+}
+
+@Composable
+private fun LoadingCard() {
+    OutlinedCard(
+                modifier = Modifier.fillMaxWidth(),
+        shape = RoundedCornerShape(16.dp)
     ) {
         Column(
             modifier = Modifier
-                .fillMaxSize()
-                .padding(12.dp),
-            verticalArrangement = Arrangement.spacedBy(8.dp)
+                .fillMaxWidth()
+                .padding(24.dp),
+            horizontalAlignment = Alignment.CenterHorizontally,
+            verticalArrangement = Arrangement.spacedBy(16.dp)
         ) {
-            Text(
-                text = title,
-                style = MaterialTheme.typography.bodyMedium,
-                color = MaterialTheme.colorScheme.onSurface
-            )
-            Canvas(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .height(160.dp)
-                    .clip(RoundedCornerShape(12.dp))
-                    .background(MaterialTheme.colorScheme.surface)
-            ) {
-                if (values.isEmpty() || values.all { it == values.first() }) {
-                    // Avoid divide-by-zero when all points equal
-                    val y = size.height / 2
-                    drawLine(
-                        color = lineColor,
-                        start = androidx.compose.ui.geometry.Offset(16f, y),
-                        end = androidx.compose.ui.geometry.Offset(size.width - 16f, y),
-                        strokeWidth = 6f
-                    )
-                    return@Canvas
-                }
-
-                val chartPadding = 24f
-                val xStep = (size.width - chartPadding * 2) / (values.size - 1)
-                val minY = (values.minOrNull() ?: 0f) - 0.5f
-                val maxY = (values.maxOrNull() ?: 1f) + 0.5f
-                val yRange = (maxY - minY).coerceAtLeast(1f)
-
-                // Axes
-                drawLine(
-                    color = outline,
-                    start = androidx.compose.ui.geometry.Offset(chartPadding, size.height - chartPadding),
-                    end = androidx.compose.ui.geometry.Offset(size.width - chartPadding, size.height - chartPadding),
-                    strokeWidth = 2f
-                )
-                drawLine(
-                    color = outline,
-                    start = androidx.compose.ui.geometry.Offset(chartPadding, chartPadding),
-                    end = androidx.compose.ui.geometry.Offset(chartPadding, size.height - chartPadding),
-                    strokeWidth = 2f
-                )
-
-                // Line path
-                val path = Path()
-                values.forEachIndexed { index, value ->
-                    val x = chartPadding + xStep * index
-                    val normalized = (value - minY) / yRange
-                    val y = size.height - chartPadding - normalized * (size.height - chartPadding * 2)
-                    if (index == 0) path.moveTo(x, y) else path.lineTo(x, y)
-                }
-                drawPath(
-                    path = path,
-                    color = lineColor,
-                    style = Stroke(width = 6f, cap = StrokeCap.Round, join = StrokeJoin.Round)
-                )
-            }
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.SpaceBetween
-            ) {
-                labels.forEach { label ->
+            CircularProgressIndicator()
                     Text(
-                        text = label,
-                        style = MaterialTheme.typography.labelSmall,
+                text = "Loading analytics data...",
+                style = MaterialTheme.typography.bodyMedium,
                         color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.7f)
                     )
                 }
             }
+}
+
+@Composable
+private fun ErrorCard(error: String) {
+    OutlinedCard(
+        modifier = Modifier.fillMaxWidth(),
+        shape = RoundedCornerShape(16.dp),
+        colors = CardDefaults.cardColors(
+            containerColor = MaterialTheme.colorScheme.error.copy(alpha = 0.1f)
+        ),
+        border = BorderStroke(1.dp, MaterialTheme.colorScheme.error)
+    ) {
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(16.dp),
+            verticalArrangement = Arrangement.spacedBy(8.dp)
+        ) {
+            Text(
+                text = "Error",
+                style = MaterialTheme.typography.titleMedium,
+                color = MaterialTheme.colorScheme.error
+            )
+            Text(
+                text = error,
+                style = MaterialTheme.typography.bodyMedium,
+                color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.8f)
+            )
         }
     }
 }
 
-private enum class AnalyticsInterval { FIVE_MIN, HOURLY }
-
 @Composable
-private fun IntervalChip(
-    label: String,
-    selected: Boolean,
-    onClick: () -> Unit,
-    outline: androidx.compose.ui.graphics.Color,
-) {
-    val bg = if (selected) MaterialTheme.colorScheme.primary.copy(alpha = 0.15f) else MaterialTheme.colorScheme.surface
-    val fg = if (selected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurface
+private fun EmptyStateCard() {
     OutlinedCard(
-        border = BorderStroke(1.dp, outline),
-        shape = RoundedCornerShape(50),
-        colors = CardDefaults.cardColors(containerColor = bg)
+        modifier = Modifier.fillMaxWidth(),
+        shape = RoundedCornerShape(16.dp)
     ) {
-        Text(
-            text = label,
-            color = fg,
+        Column(
             modifier = Modifier
-                .clickable { onClick() }
-                .padding(horizontal = 12.dp, vertical = 6.dp),
-            style = MaterialTheme.typography.labelMedium
-        )
+                .fillMaxWidth()
+                .padding(24.dp),
+            horizontalAlignment = Alignment.CenterHorizontally,
+            verticalArrangement = Arrangement.spacedBy(16.dp)
+        ) {
+            Text(
+                text = "📊",
+                fontSize = 48.sp
+            )
+            Text(
+                text = "No Analytics Data",
+                style = MaterialTheme.typography.titleMedium,
+                color = MaterialTheme.colorScheme.onSurface
+            )
+            Text(
+                text = "Analytics data will appear here once sensor data is collected.",
+                style = MaterialTheme.typography.bodyMedium,
+                color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.7f),
+                textAlign = TextAlign.Center
+            )
+        }
     }
 }
 
+// Helper functions
+private fun formatDate(dateString: String): String {
+    return try {
+        val inputFormat = SimpleDateFormat("yyyy-MM-dd", Locale.getDefault())
+        val outputFormat = SimpleDateFormat("MMM dd, yyyy", Locale.getDefault())
+        val date = inputFormat.parse(dateString)
+        outputFormat.format(date ?: Date())
+    } catch (e: Exception) {
+        dateString
+    }
+}
 
+private fun calculateSensorStatus(parameter: String, value: Double): com.capstone.aquabell.data.model.SensorStatus {
+    return when (parameter) {
+        "Air Temp" -> calculateAirTempStatus(value)
+        "Humidity" -> calculateHumidityStatus(value)
+        "Water Temp" -> calculateWaterTempStatus(value)
+        "pH" -> calculatePHStatus(value)
+        "Dissolved Oxygen" -> calculateDOStatus(value)
+        "Turbidity" -> calculateTurbidityStatus(value)
+        else -> com.capstone.aquabell.data.model.SensorStatus("Unknown", Color.Gray, 0.5f)
+    }
+}
+
+private fun calculateAirTempStatus(value: Double): com.capstone.aquabell.data.model.SensorStatus {
+    return when {
+        value in SensorRanges.AIR_TEMP_EXCELLENT_MIN..SensorRanges.AIR_TEMP_EXCELLENT_MAX -> 
+            com.capstone.aquabell.data.model.SensorStatus("Excellent", Color(0xFF4CAF50), 0.8f)
+        value in SensorRanges.AIR_TEMP_ACCEPTABLE_MIN..SensorRanges.AIR_TEMP_ACCEPTABLE_MAX -> 
+            com.capstone.aquabell.data.model.SensorStatus("Good", Color(0xFF2196F3), 0.6f)
+        value in SensorRanges.AIR_TEMP_CAUTION_MIN..SensorRanges.AIR_TEMP_CAUTION_MAX -> 
+            com.capstone.aquabell.data.model.SensorStatus("Caution", Color(0xFFFF9800), 0.4f)
+        else -> com.capstone.aquabell.data.model.SensorStatus("Critical", Color(0xFFF44336), 0.2f)
+    }
+}
+
+private fun calculateHumidityStatus(value: Double): com.capstone.aquabell.data.model.SensorStatus {
+    return when {
+        value in SensorRanges.HUMIDITY_EXCELLENT_MIN..SensorRanges.HUMIDITY_EXCELLENT_MAX -> 
+            com.capstone.aquabell.data.model.SensorStatus("Excellent", Color(0xFF4CAF50), 0.8f)
+        value in SensorRanges.HUMIDITY_ACCEPTABLE_MIN..SensorRanges.HUMIDITY_ACCEPTABLE_MAX -> 
+            com.capstone.aquabell.data.model.SensorStatus("Good", Color(0xFF2196F3), 0.6f)
+        value in SensorRanges.HUMIDITY_CAUTION_MIN..SensorRanges.HUMIDITY_CAUTION_MAX -> 
+            com.capstone.aquabell.data.model.SensorStatus("Caution", Color(0xFFFF9800), 0.4f)
+        else -> com.capstone.aquabell.data.model.SensorStatus("Critical", Color(0xFFF44336), 0.2f)
+    }
+}
+
+private fun calculateWaterTempStatus(value: Double): com.capstone.aquabell.data.model.SensorStatus {
+    return when {
+        value in SensorRanges.WATER_TEMP_EXCELLENT_MIN..SensorRanges.WATER_TEMP_EXCELLENT_MAX -> 
+            com.capstone.aquabell.data.model.SensorStatus("Excellent", Color(0xFF4CAF50), 0.8f)
+        value in SensorRanges.WATER_TEMP_ACCEPTABLE_MIN..SensorRanges.WATER_TEMP_ACCEPTABLE_MAX -> 
+            com.capstone.aquabell.data.model.SensorStatus("Good", Color(0xFF2196F3), 0.6f)
+        value in SensorRanges.WATER_TEMP_CAUTION_MIN..SensorRanges.WATER_TEMP_CAUTION_MAX -> 
+            com.capstone.aquabell.data.model.SensorStatus("Caution", Color(0xFFFF9800), 0.4f)
+        else -> com.capstone.aquabell.data.model.SensorStatus("Critical", Color(0xFFF44336), 0.2f)
+    }
+}
+
+private fun calculatePHStatus(value: Double): com.capstone.aquabell.data.model.SensorStatus {
+    return when {
+        value in SensorRanges.PH_EXCELLENT_MIN..SensorRanges.PH_EXCELLENT_MAX -> 
+            com.capstone.aquabell.data.model.SensorStatus("Excellent", Color(0xFF4CAF50), 0.8f)
+        value in SensorRanges.PH_ACCEPTABLE_MIN..SensorRanges.PH_ACCEPTABLE_MAX -> 
+            com.capstone.aquabell.data.model.SensorStatus("Good", Color(0xFF2196F3), 0.6f)
+        value in SensorRanges.PH_CAUTION_MIN..SensorRanges.PH_CAUTION_MAX -> 
+            com.capstone.aquabell.data.model.SensorStatus("Caution", Color(0xFFFF9800), 0.4f)
+        else -> com.capstone.aquabell.data.model.SensorStatus("Critical", Color(0xFFF44336), 0.2f)
+    }
+}
+
+private fun calculateDOStatus(value: Double): com.capstone.aquabell.data.model.SensorStatus {
+    return when {
+        value >= SensorRanges.DO_EXCELLENT_MIN -> 
+            com.capstone.aquabell.data.model.SensorStatus("Excellent", Color(0xFF4CAF50), 0.8f)
+        value >= SensorRanges.DO_ACCEPTABLE_MIN -> 
+            com.capstone.aquabell.data.model.SensorStatus("Good", Color(0xFF2196F3), 0.6f)
+        value >= SensorRanges.DO_CAUTION_MIN -> 
+            com.capstone.aquabell.data.model.SensorStatus("Caution", Color(0xFFFF9800), 0.4f)
+        else -> com.capstone.aquabell.data.model.SensorStatus("Critical", Color(0xFFF44336), 0.2f)
+    }
+}
+
+private fun calculateTurbidityStatus(value: Double): com.capstone.aquabell.data.model.SensorStatus {
+    return when {
+        value <= SensorRanges.TURBIDITY_EXCELLENT_MAX -> 
+            com.capstone.aquabell.data.model.SensorStatus("Excellent", Color(0xFF4CAF50), 0.8f)
+        value <= SensorRanges.TURBIDITY_ACCEPTABLE_MAX -> 
+            com.capstone.aquabell.data.model.SensorStatus("Good", Color(0xFF2196F3), 0.6f)
+        value <= SensorRanges.TURBIDITY_CAUTION_MAX -> 
+            com.capstone.aquabell.data.model.SensorStatus("Caution", Color(0xFFFF9800), 0.4f)
+        else -> com.capstone.aquabell.data.model.SensorStatus("Critical", Color(0xFFF44336), 0.2f)
+    }
+}
