@@ -463,14 +463,29 @@ class FirebaseRepository(
             querySnapshot.documents.mapNotNull { doc ->
                 try {
                     val data = doc.data ?: return@mapNotNull null
+                    val dateStr = data["date"] as? String ?: doc.id
+                    val waterTemp = (data["avgWaterTemp"] as? Number)?.toDouble()
+                        ?: (data["waterTemp"] as? Number)?.toDouble() ?: 0.0
+                    val airTemp = (data["avgAirTemp"] as? Number)?.toDouble()
+                        ?: (data["airTemp"] as? Number)?.toDouble() ?: 0.0
+                    val airHumidity = (data["avgAirHumidity"] as? Number)?.toDouble()
+                        ?: (data["airHumidity"] as? Number)?.toDouble() ?: 0.0
+                    val pH = (data["avgPH"] as? Number)?.toDouble()
+                        ?: (data["pH"] as? Number)?.toDouble() ?: 0.0
+                    val dissolvedOxygen = (data["avgDO"] as? Number)?.toDouble()
+                        ?: (data["dissolvedOxygen"] as? Number)?.toDouble() ?: 0.0
+                    val turbidityNTU = (data["avgTurbidityNTU"] as? Number)?.toDouble()
+                        ?: (data["avgTurbidity"] as? Number)?.toDouble()
+                        ?: (data["turbidityNTU"] as? Number)?.toDouble() ?: 0.0
+
                     DailyAnalytics(
-                        date = data["date"] as? String ?: "",
-                        airTemp = (data["airTemp"] as? Number)?.toDouble() ?: 0.0,
-                        airHumidity = (data["airHumidity"] as? Number)?.toDouble() ?: 0.0,
-                        waterTemp = (data["waterTemp"] as? Number)?.toDouble() ?: 0.0,
-                        pH = (data["pH"] as? Number)?.toDouble() ?: 0.0,
-                        dissolvedOxygen = (data["dissolvedOxygen"] as? Number)?.toDouble() ?: 0.0,
-                        turbidityNTU = (data["turbidityNTU"] as? Number)?.toDouble() ?: 0.0,
+                        date = dateStr,
+                        airTemp = airTemp,
+                        airHumidity = airHumidity,
+                        waterTemp = waterTemp,
+                        pH = pH,
+                        dissolvedOxygen = dissolvedOxygen,
+                        turbidityNTU = turbidityNTU,
                         timestamp = data["timestamp"] as? com.google.firebase.Timestamp ?: com.google.firebase.Timestamp.now(),
                         isLive = false
                     )

@@ -105,7 +105,15 @@ class AnalyticsViewModel(
 
     private suspend fun loadHistoricalDailyLogs(): List<DailyAnalytics> {
         return try {
-            repository.getDailyLogs()
+            val fromFirestore = repository.getDailyLogs()
+            if (fromFirestore.isNotEmpty()) return fromFirestore
+            // Optional mock data fallback for development/testing only
+            //TODO: DELETE THIS
+            listOf(
+                DailyAnalytics(date = "2025-10-18", waterTemp = 25.8, airTemp = 27.4, airHumidity = 80.1, pH = 7.0, dissolvedOxygen = 6.2, turbidityNTU = 12.5, isLive = false),
+                DailyAnalytics(date = "2025-10-19", waterTemp = 26.2, airTemp = 28.3, airHumidity = 81.4, pH = 7.1, dissolvedOxygen = 5.9, turbidityNTU = 10.9, isLive = false),
+                DailyAnalytics(date = "2025-10-20", waterTemp = 26.7, airTemp = 29.0, airHumidity = 82.0, pH = 7.2, dissolvedOxygen = 5.8, turbidityNTU = 9.8, isLive = false)
+            )
         } catch (e: Exception) {
             Log.e("AnalyticsViewModel", "Error loading historical data: ${e.message}", e)
             emptyList()

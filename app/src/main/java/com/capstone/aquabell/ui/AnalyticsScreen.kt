@@ -478,17 +478,15 @@ private fun EmptyStateCard() {
             horizontalAlignment = Alignment.CenterHorizontally,
             verticalArrangement = Arrangement.spacedBy(16.dp)
         ) {
+            // Subtle animated alpha could be added later if desired
+            Text(text = "📭", fontSize = 48.sp)
             Text(
-                text = "📊",
-                fontSize = 48.sp
-            )
-            Text(
-                text = "No Analytics Data",
+                text = "No records found",
                 style = MaterialTheme.typography.titleMedium,
                 color = MaterialTheme.colorScheme.onSurface
             )
             Text(
-                text = "Analytics data will appear here once sensor data is collected.",
+                text = "Data will appear here once daily logs are available.",
                 style = MaterialTheme.typography.bodyMedium,
                 color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.7f),
                 textAlign = TextAlign.Center
