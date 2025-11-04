@@ -69,6 +69,8 @@ class HomeViewModel(
                         Log.d("HomeViewModel", "  - Light: ${currentState.light.mode}/${currentState.light.value}")
                         Log.d("HomeViewModel", "  - Pump: ${currentState.pump.mode}/${currentState.pump.value}")
                         Log.d("HomeViewModel", "  - Valve: ${currentState.valve.mode}/${currentState.valve.value}")
+                        Log.d("HomeViewModel", "  - Cooler: ${currentState.cooler.mode}/${currentState.cooler.value}")
+                        Log.d("HomeViewModel", "  - Heater: ${currentState.heater.mode}/${currentState.heater.value}")
                     } else {
                         Log.w("HomeViewModel", "❌ FAILED: No data returned from RTDB - will use default states")
                         Log.w("HomeViewModel", "Current default states: fan=${_command.value.fan.mode}/${_command.value.fan.value}, light=${_command.value.light.mode}/${_command.value.light.value}")
@@ -88,7 +90,7 @@ class HomeViewModel(
         viewModelScope.launch {
             repository.commandControl().collectLatest { control ->
                 _command.value = control
-                Log.d("HomeViewModel", "Updated actuator states from stream: fan=${control.fan.mode}/${control.fan.value}, light=${control.light.mode}/${control.light.value}, pump=${control.pump.mode}/${control.pump.value}, valve=${control.valve.mode}/${control.valve.value}")
+                Log.d("HomeViewModel", "Updated actuator states from stream: fan=${control.fan.mode}/${control.fan.value}, light=${control.light.mode}/${control.light.value}, pump=${control.pump.mode}/${control.pump.value}, valve=${control.valve.mode}/${control.valve.value}, cooler=${control.cooler.mode}/${control.cooler.value}, heater=${control.heater.mode}/${control.heater.value}")
             }
         }
     }
@@ -104,7 +106,7 @@ class HomeViewModel(
                     }
                     updated?.let { 
                         _command.value = it
-                        Log.d("HomeViewModel", "Refreshed actuator states: fan=${it.fan.mode}/${it.fan.value}, light=${it.light.mode}/${it.light.value}, pump=${it.pump.mode}/${it.pump.value}, valve=${it.valve.mode}/${it.valve.value}")
+                        Log.d("HomeViewModel", "Refreshed actuator states: fan=${it.fan.mode}/${it.fan.value}, light=${it.light.mode}/${it.light.value}, pump=${it.pump.mode}/${it.pump.value}, valve=${it.valve.mode}/${it.valve.value}, cooler=${it.cooler.mode}/${it.cooler.value}, heater=${it.heater.mode}/${it.heater.value}")
                     }
                 }
             } catch (e: Exception) {

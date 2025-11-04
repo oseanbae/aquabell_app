@@ -152,7 +152,10 @@ private fun HomeContent(
         } else {
             // Log the command state when rendering the control panel
             LaunchedEffect(command) {
-                android.util.Log.d("HomeScreen", "Rendering control panel with states: fan=${command.fan.mode}/${command.fan.value}, light=${command.light.mode}/${command.light.value}, pump=${command.pump.mode}/${command.pump.value}, valve=${command.valve.mode}/${command.valve.value}")
+                android.util.Log.d(
+                    "HomeScreen",
+                    "Rendering control panel with states: fan=${command.fan.mode}/${command.fan.value}, light=${command.light.mode}/${command.light.value}, pump=${command.pump.mode}/${command.pump.value}, valve=${command.valve.mode}/${command.valve.value}, cooler=${command.cooler.mode}/${command.cooler.value}, heater=${command.heater.mode}/${command.heater.value}"
+                )
             }
             PerActuatorControlGrid(
                 command = command,
@@ -471,7 +474,7 @@ private fun WaterLevelModule(live: com.capstone.aquabell.data.model.LiveDataSnap
                 contentAlignment = Alignment.Center
             ) {
                 Icon(
-                    painter = painterResource(id = R.drawable.ic_valve),
+                    painter = painterResource(id = R.drawable.ic_float_switch),
                     contentDescription = "Water Level",
                     tint = if (isLowWater) Color(0xFFFF5722) else MaterialTheme.colorScheme.primary,
                     modifier = Modifier.size(26.dp)
@@ -1019,6 +1022,8 @@ private fun PerActuatorControlGrid(
     val fansColor = Color(0xFF42A5F5)
     val pumpColor = Color(0xFF26A69A)
     val valveColor = Color(0xFF66BB6A)
+    val coolerColor = Color(0xFF29B6F6) // ❄️ Snowflake accent
+    val heaterColor = Color(0xFFFF7043) // 🔥 Flame accent
 
     data class Tile(
         val key: String,
@@ -1084,6 +1089,32 @@ private fun PerActuatorControlGrid(
                 onSetActuatorMode("valve", next)
             }
         ),
+        Tile(
+            key = "cooler",
+            title = "COOLER",
+            iconRes = R.drawable.ic_water_cooler,
+            active = command.cooler.value,
+            mode = command.cooler.mode,
+            accent = coolerColor,
+            onToggleValue = { onSetActuatorValue("cooler", !command.cooler.value) },
+            onToggleMode = {
+                val next = if (command.cooler.mode == ControlMode.AUTO) ControlMode.MANUAL else ControlMode.AUTO
+                onSetActuatorMode("cooler", next)
+            }
+        ),
+        Tile(
+            key = "heater",
+            title = "HEATER",
+            iconRes = R.drawable.ic_water_heater,
+            active = command.heater.value,
+            mode = command.heater.mode,
+            accent = heaterColor,
+            onToggleValue = { onSetActuatorValue("heater", !command.heater.value) },
+            onToggleMode = {
+                val next = if (command.heater.mode == ControlMode.AUTO) ControlMode.MANUAL else ControlMode.AUTO
+                onSetActuatorMode("heater", next)
+            }
+        ),
     )
 
     @Composable
@@ -1127,7 +1158,7 @@ private fun PerActuatorControlGrid(
                     )
                     Row(verticalAlignment = Alignment.CenterVertically) {
                         Text(
-                            text = if (isAuto) "AUTO" else "MANUAL",
+                            text = "AUTO",
                             style = MaterialTheme.typography.labelSmall,
                             color = if (isAuto) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.secondary
                         )
@@ -1205,7 +1236,7 @@ private fun PerActuatorControlGrid(
     }
 
     Column {
-        // Grid: 2 rows x 2 columns
+        // Keep a responsive 2-column grid; we now have 6 tiles (3 rows)
         Row(
             modifier = Modifier.fillMaxWidth(),
             horizontalArrangement = Arrangement.spacedBy(12.dp)
@@ -1219,7 +1250,16 @@ private fun PerActuatorControlGrid(
             modifier = Modifier.fillMaxWidth(),
             horizontalArrangement = Arrangement.spacedBy(12.dp)
         ) {
-            tiles.drop(2).forEach { tile ->
+            tiles.drop(2).take(2).forEach { tile ->
+                ActuatorTile(tile, modifier = Modifier.weight(1f))
+            }
+        }
+        Spacer(Modifier.height(12.dp))
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.spacedBy(12.dp)
+        ) {
+            tiles.drop(4).forEach { tile ->
                 ActuatorTile(tile, modifier = Modifier.weight(1f))
             }
         }

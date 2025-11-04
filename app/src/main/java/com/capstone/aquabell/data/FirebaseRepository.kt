@@ -282,7 +282,7 @@ class FirebaseRepository(
             snapshot?.let { dataSnapshot ->
                 if (dataSnapshot.exists()) {
                     val commands = dataSnapshot.getValue(ActuatorCommands::class.java) ?: ActuatorCommands()
-                    Log.d(TAG, "Parsed ActuatorCommands: fan=${commands.fan.isAuto}/${commands.fan.value}, light=${commands.light.isAuto}/${commands.light.value}, pump=${commands.pump.isAuto}/${commands.pump.value}, valve=${commands.valve.isAuto}/${commands.valve.value}")
+                    Log.d(TAG, "Parsed ActuatorCommands: fan=${commands.fan.isAuto}/${commands.fan.value}, light=${commands.light.isAuto}/${commands.light.value}, pump=${commands.pump.isAuto}/${commands.pump.value}, valve=${commands.valve.isAuto}/${commands.valve.value}, cooler=${commands.cooler.isAuto}/${commands.cooler.value}, heater=${commands.heater.isAuto}/${commands.heater.value}")
                     
                     val result = CommandControl(
                         fan = ActuatorCommand(
@@ -300,9 +300,17 @@ class FirebaseRepository(
                         valve = ActuatorCommand(
                             mode = if (commands.valve.isAuto) ControlMode.AUTO else ControlMode.MANUAL,
                             value = commands.valve.value
+                        ),
+                        cooler = ActuatorCommand(
+                            mode = if (commands.cooler.isAuto) ControlMode.AUTO else ControlMode.MANUAL,
+                            value = commands.cooler.value
+                        ),
+                        heater = ActuatorCommand(
+                            mode = if (commands.heater.isAuto) ControlMode.AUTO else ControlMode.MANUAL,
+                            value = commands.heater.value
                         )
                     )
-                    Log.d(TAG, "✅ Returning CommandControl: fan=${result.fan.mode}/${result.fan.value}, light=${result.light.mode}/${result.light.value}, pump=${result.pump.mode}/${result.pump.value}, valve=${result.valve.mode}/${result.valve.value}")
+                    Log.d(TAG, "✅ Returning CommandControl: fan=${result.fan.mode}/${result.fan.value}, light=${result.light.mode}/${result.light.value}, pump=${result.pump.mode}/${result.pump.value}, valve=${result.valve.mode}/${result.valve.value}, cooler=${result.cooler.mode}/${result.cooler.value}, heater=${result.heater.mode}/${result.heater.value}")
                     result
                 } else {
                     Log.w(TAG, "❌ No data found at /commands/$deviceId")
@@ -325,6 +333,8 @@ class FirebaseRepository(
                         light = ActuatorCommand(mode = if (cmds.light.isAuto) ControlMode.AUTO else ControlMode.MANUAL, value = cmds.light.value),
                         pump = ActuatorCommand(mode = if (cmds.pump.isAuto) ControlMode.AUTO else ControlMode.MANUAL, value = cmds.pump.value),
                         valve = ActuatorCommand(mode = if (cmds.valve.isAuto) ControlMode.AUTO else ControlMode.MANUAL, value = cmds.valve.value),
+                        cooler = ActuatorCommand(mode = if (cmds.cooler.isAuto) ControlMode.AUTO else ControlMode.MANUAL, value = cmds.cooler.value),
+                        heater = ActuatorCommand(mode = if (cmds.heater.isAuto) ControlMode.AUTO else ControlMode.MANUAL, value = cmds.heater.value),
                     )
                     trySend(mapped)
                     connectionState.tryEmit(ConnectionState.CONNECTED)
@@ -352,6 +362,8 @@ class FirebaseRepository(
             "light/isAuto" to isAuto,
             "pump/isAuto" to isAuto,
             "valve/isAuto" to isAuto,
+            "cooler/isAuto" to isAuto,
+            "heater/isAuto" to isAuto,
         )
         try {
             commandsRef().updateChildrenAwait(updates)
@@ -368,6 +380,8 @@ class FirebaseRepository(
             "light/isAuto" to false, "light/value" to overrides.light,
             "pump/isAuto" to false, "pump/value" to overrides.waterPump,
             "valve/isAuto" to false, "valve/value" to overrides.valve,
+            "cooler/isAuto" to false, "cooler/value" to overrides.cooler,
+            "heater/isAuto" to false, "heater/value" to overrides.heater,
         )
         try {
             commandsRef().updateChildrenAwait(updates)

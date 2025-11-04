@@ -8,6 +8,8 @@ data class RelayStates(
     val light: Boolean = false,
     val waterPump: Boolean = false,
     val valve: Boolean = false,
+    val cooler: Boolean = false,
+    val heater: Boolean = false,
 )
 
 data class LiveDataSnapshot(
@@ -39,6 +41,8 @@ data class CommandControl(
     val light: ActuatorCommand = ActuatorCommand(),
     val pump: ActuatorCommand = ActuatorCommand(),
     val valve: ActuatorCommand = ActuatorCommand(),
+    val cooler: ActuatorCommand = ActuatorCommand(),
+    val heater: ActuatorCommand = ActuatorCommand(),
 )
 
 data class SensorLog(
@@ -64,7 +68,9 @@ data class ActuatorCommands(
     val fan: ActuatorState = ActuatorState(),
     val light: ActuatorState = ActuatorState(),
     val pump: ActuatorState = ActuatorState(),
-    val valve: ActuatorState = ActuatorState()
+    val valve: ActuatorState = ActuatorState(),
+    val cooler: ActuatorState = ActuatorState(),
+    val heater: ActuatorState = ActuatorState()
 )
 
 data class CommandsRoot(
@@ -76,7 +82,9 @@ data class ActuatorStates(
     val fan: ActuatorState = ActuatorState(),
     val light: ActuatorState = ActuatorState(),
     val pump: ActuatorState = ActuatorState(),
-    val valve: ActuatorState = ActuatorState()
+    val valve: ActuatorState = ActuatorState(),
+    val cooler: ActuatorState = ActuatorState(),
+    val heater: ActuatorState = ActuatorState()
 )
 
 
