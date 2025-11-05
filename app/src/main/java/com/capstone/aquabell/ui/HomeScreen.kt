@@ -1,15 +1,12 @@
 package com.capstone.aquabell.ui
 
 import androidx.compose.animation.AnimatedContent
-import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.animation.slideInVertically
 import androidx.compose.animation.slideOutVertically
 import androidx.compose.animation.togetherWith
 import androidx.compose.foundation.BorderStroke
-import androidx.compose.foundation.border
-import androidx.compose.material3.Icon
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
@@ -23,18 +20,18 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
-import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material.icons.filled.Info
+import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.CircularProgressIndicator
-import androidx.compose.material3.IconButton
 import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.NavigationBar
 import androidx.compose.material3.NavigationBarItem
@@ -57,7 +54,6 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.scale
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
@@ -65,13 +61,14 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.lifecycle.viewmodel.compose.viewModel
 import com.capstone.aquabell.R
-import com.capstone.aquabell.ui.theme.AquabellTheme
 import com.capstone.aquabell.data.FirebaseRepository
 import com.capstone.aquabell.data.model.ControlMode
 import com.capstone.aquabell.data.model.RelayStates
-import androidx.lifecycle.viewmodel.compose.viewModel
+import com.capstone.aquabell.ui.theme.AquabellTheme
 import com.capstone.aquabell.ui.viewmodel.HomeViewModel
+import com.capstone.aquabell.data.model.DailyAnalytics
 
 @Composable
 fun HomeScreen(modifier: Modifier = Modifier) {
@@ -733,7 +730,7 @@ fun getSensorStatus(parameter: String, value: Double): SensorStatus {
     return when (parameter) {
         "Turbidity" -> when {
             value <= 50 -> SensorStatus("Excellent", Green)
-            value <= 120 -> SensorStatus("Acceptable", Blue) // 51-120
+            value <= 120 -> SensorStatus("Normal", Blue) // 51-120
             value <= 250 -> SensorStatus("Caution", Orange)          // 121-250
             else -> SensorStatus("Critical", Red)                    // >250
         }
@@ -741,7 +738,7 @@ fun getSensorStatus(parameter: String, value: Double): SensorStatus {
         "pH" -> when {
             value in 6.5..7.5 -> SensorStatus("Excellent", Green)
             // 6.3–6.5 (exclusive of 6.5) or 7.5 (exclusive of 7.5) – 7.8
-            value in 6.3..<6.5 || value in 7.5..7.8 -> SensorStatus("Acceptable", Blue)
+            value in 6.3..<6.5 || value in 7.5..7.8 -> SensorStatus("Normal", Blue)
             // <6.3 or >7.8 – 8.2 (Using exclusive ranges for clarity with the Good range)
             value < 6.3 || value in 7.8..8.2 -> SensorStatus("Caution", Orange)
             else -> SensorStatus("Critical", Red) // <6.0 or >8.2 (Since values in the range 6.0-8.2 are covered by the other cases)
@@ -749,7 +746,7 @@ fun getSensorStatus(parameter: String, value: Double): SensorStatus {
 
         "Dissolved Oxygen" -> when {
             value >= 6.5 -> SensorStatus("Excellent", Green)
-            value >= 5.5 -> SensorStatus("Good / Acceptable", Blue) // 5.5–6.5
+            value >= 5.5 -> SensorStatus("Normal", Blue) // 5.5–6.5
             value >= 4.0 -> SensorStatus("Caution", Orange)          // 4.0–5.5
             else -> SensorStatus("Critical", Red)                    // <4.0
         }
@@ -757,7 +754,7 @@ fun getSensorStatus(parameter: String, value: Double): SensorStatus {
         "Water Temp" -> when {
             value in 24.0..28.0 -> SensorStatus("Excellent", Green)
             // 22–24 (exclusive of 24) or 28 (exclusive of 28) – 30
-            value in 22.0..<24.0 || value in 28.0..30.0 -> SensorStatus("Good / Acceptable", Blue)
+            value in 22.0..<24.0 || value in 28.0..30.0 -> SensorStatus("Normal", Blue)
             // 20–22 (exclusive of 22) or 30 (exclusive of 30) – 32
             value in 20.0..<22.0 || value in 30.0..32.0 -> SensorStatus("Caution", Orange)
             else -> SensorStatus("Critical", Red) // <20 or >32
@@ -766,7 +763,7 @@ fun getSensorStatus(parameter: String, value: Double): SensorStatus {
         "Air Temp" -> when {
             value in 21.0..29.0 -> SensorStatus("Excellent", Green)
             // 19–21 (exclusive of 21) or 29 (exclusive of 29) – 32
-            value in 19.0..<21.0 || value in 29.0..32.0 -> SensorStatus("Acceptable", Blue)
+            value in 19.0..<21.0 || value in 29.0..32.0 -> SensorStatus("Normal", Blue)
             // 17–19 (exclusive of 19) or 32 (exclusive of 32) – 35
             value in 17.0..<19.0 || value in 32.0..35.0 -> SensorStatus("Caution", Orange)
             else -> SensorStatus("Critical", Red) // <17 or >35
@@ -775,7 +772,7 @@ fun getSensorStatus(parameter: String, value: Double): SensorStatus {
         "Humidity" -> when {
             value in 60.0..70.0 -> SensorStatus("Excellent", Green)
             // 50–60 (exclusive of 60) or 70 (exclusive of 70) – 80
-            value in 50.0..<60.0 || value in 70.0..80.0 -> SensorStatus("Acceptable", Blue)
+            value in 50.0..<60.0 || value in 70.0..80.0 -> SensorStatus("Normal", Blue)
             // 40–50 (exclusive of 50) or 80 (exclusive of 80) – 90
             value in 40.0..<50.0 || value in 80.0..90.0 -> SensorStatus("Caution", Orange)
             else -> SensorStatus("Critical", Red) // <40 or >90
@@ -1022,8 +1019,8 @@ private fun PerActuatorControlGrid(
     val fansColor = Color(0xFF42A5F5)
     val pumpColor = Color(0xFF26A69A)
     val valveColor = Color(0xFF66BB6A)
-    val coolerColor = Color(0xFF29B6F6) // ❄️ Snowflake accent
-    val heaterColor = Color(0xFFFF7043) // 🔥 Flame accent
+    val coolerColor = Color(0xFF29B6F6)
+    val heaterColor = Color(0xFFFF7043)
 
     data class Tile(
         val key: String,
