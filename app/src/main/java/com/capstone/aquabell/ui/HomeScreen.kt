@@ -35,6 +35,8 @@ import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.NavigationBar
 import androidx.compose.material3.NavigationBarItem
+import androidx.compose.material3.Badge
+import androidx.compose.material3.BadgedBox
 import androidx.compose.material3.OutlinedCard
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Switch
@@ -105,7 +107,10 @@ fun HomeScreen(modifier: Modifier = Modifier) {
                     onSetActuatorMode = { actuator, mode -> vm.setActuatorMode(actuator, mode) },
                     onSetActuatorValue = { actuator, value -> vm.setActuatorValue(actuator, value) }
                 )
-                else ->  AlertsScreen(modifier = Modifier.padding(inner))
+                else ->  {
+                    val alertsVm = androidx.lifecycle.viewmodel.compose.viewModel<com.capstone.aquabell.ui.viewmodel.AlertsViewModel>()
+                    AlertsScreen(modifier = Modifier.padding(inner), viewModel = alertsVm)
+                }
             }
         }
     }
@@ -1281,13 +1286,30 @@ private fun BottomNavBar(selectedIndex: Int, onSelected: (Int) -> Unit) {
             NavigationBarItem(
                 selected = selectedIndex == index,
                 onClick = { onSelected(index) },
-                icon = { 
-                    Icon(
-                        painter = painterResource(id = pair.first),
-                        contentDescription = pair.second,
-                        modifier = Modifier.size(24.dp),
-                        tint = Color.Unspecified
-                    )
+                icon = {
+                    if (pair.second == "Alerts") {
+                        val vm = androidx.lifecycle.viewmodel.compose.viewModel<com.capstone.aquabell.ui.viewmodel.AlertsViewModel>()
+                        val count = vm.unreadCount.collectAsState(initial = 0)
+                        BadgedBox(badge = {
+                            if (count.value > 0) {
+                                Badge { Text(if (count.value > 99) "99+" else count.value.toString()) }
+                            }
+                        }) {
+                            Icon(
+                                painter = painterResource(id = pair.first),
+                                contentDescription = pair.second,
+                                modifier = Modifier.size(24.dp),
+                                tint = Color.Unspecified
+                            )
+                        }
+                    } else {
+                        Icon(
+                            painter = painterResource(id = pair.first),
+                            contentDescription = pair.second,
+                            modifier = Modifier.size(24.dp),
+                            tint = Color.Unspecified
+                        )
+                    }
                 },
                 label = { Text(pair.second) }
             )
