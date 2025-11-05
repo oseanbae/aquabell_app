@@ -66,9 +66,9 @@ import com.capstone.aquabell.R
 import com.capstone.aquabell.data.FirebaseRepository
 import com.capstone.aquabell.data.model.ControlMode
 import com.capstone.aquabell.data.model.RelayStates
+import com.capstone.aquabell.data.model.SensorRanges
 import com.capstone.aquabell.ui.theme.AquabellTheme
 import com.capstone.aquabell.ui.viewmodel.HomeViewModel
-import com.capstone.aquabell.data.model.DailyAnalytics
 
 @Composable
 fun HomeScreen(modifier: Modifier = Modifier) {
@@ -344,7 +344,8 @@ fun DashboardGrid(live: com.capstone.aquabell.data.model.LiveDataSnapshot?) {
                             value = metric.value,
                             status = metric.status,
                             iconRes = metric.iconRes,
-                            borderColor = metric.statusColor,
+                            borderColor = outline,
+                            statusColor = metric.statusColor,
                             modifier = Modifier.weight(1f)
                         )
                     }
@@ -361,7 +362,8 @@ fun DashboardGrid(live: com.capstone.aquabell.data.model.LiveDataSnapshot?) {
                             value = metric.value,
                             status = metric.status,
                             iconRes = metric.iconRes,
-                            borderColor = metric.statusColor,
+                            borderColor = outline,
+                            statusColor = metric.statusColor,
                             modifier = Modifier.weight(1f)
                         )
                     }
@@ -383,7 +385,8 @@ fun DashboardGrid(live: com.capstone.aquabell.data.model.LiveDataSnapshot?) {
                             value = metric.value,
                             status = metric.status,
                             iconRes = metric.iconRes,
-                            borderColor = metric.statusColor,
+                            borderColor = outline,
+                            statusColor = metric.statusColor,
                             modifier = Modifier.weight(1f)
                         )
                     }
@@ -400,7 +403,8 @@ fun DashboardGrid(live: com.capstone.aquabell.data.model.LiveDataSnapshot?) {
                             value = metric.value,
                             status = metric.status,
                             iconRes = metric.iconRes,
-                            borderColor = metric.statusColor,
+                            borderColor = outline,
+                            statusColor = metric.statusColor,
                             modifier = Modifier.weight(1f)
                         )
                     }
@@ -417,7 +421,8 @@ fun DashboardGrid(live: com.capstone.aquabell.data.model.LiveDataSnapshot?) {
                             value = metric.value,
                             status = metric.status,
                             iconRes = metric.iconRes,
-                            borderColor = metric.statusColor,
+                            borderColor = outline,
+                            statusColor = metric.statusColor,
                             modifier = Modifier.weight(1f)
                         )
                     }
@@ -520,6 +525,7 @@ private fun MetricCard(
     status: String,
     iconRes: Int,
     borderColor: Color,
+    statusColor: Color,
 ) {
     var showTooltip by remember { mutableStateOf(false) }
 
@@ -642,7 +648,7 @@ private fun MetricCard(
                     )
                     Spacer(Modifier.height(4.dp))
                     // Status chip for clear visibility
-                    val bgColor = borderColor.copy(alpha = 0.15f)
+                    val bgColor = statusColor.copy(alpha = 0.15f)
                     Box(
                         modifier = Modifier
                             .clip(RoundedCornerShape(8.dp))
@@ -652,7 +658,7 @@ private fun MetricCard(
                         Text(
                             text = status,
                             style = MaterialTheme.typography.labelMedium.copy(fontWeight = FontWeight.SemiBold),
-                            color = borderColor,
+                            color = statusColor,
                             textAlign = TextAlign.Center,
                             maxLines = 1,
                             overflow = TextOverflow.Ellipsis
@@ -729,53 +735,53 @@ val Gray = Color.Gray         // Unknown
 fun getSensorStatus(parameter: String, value: Double): SensorStatus {
     return when (parameter) {
         "Turbidity" -> when {
-            value <= 50 -> SensorStatus("Excellent", Green)
-            value <= 120 -> SensorStatus("Normal", Blue) // 51-120
-            value <= 250 -> SensorStatus("Caution", Orange)          // 121-250
-            else -> SensorStatus("Critical", Red)                    // >250
+            value <= SensorRanges.TURBIDITY_EXCELLENT_MAX -> SensorStatus("Excellent", Green)
+            value <= SensorRanges.TURBIDITY_ACCEPTABLE_MAX -> SensorStatus("Normal", Blue)
+            value <= SensorRanges.TURBIDITY_CAUTION_MAX -> SensorStatus("Caution", Orange)
+            else -> SensorStatus("Critical", Red) // > TURBIDITY_CAUTION_MAX
         }
 
         "pH" -> when {
-            value in 6.5..7.5 -> SensorStatus("Excellent", Green)
-            // 6.3–6.5 (exclusive of 6.5) or 7.5 (exclusive of 7.5) – 7.8
-            value in 6.3..<6.5 || value in 7.5..7.8 -> SensorStatus("Normal", Blue)
-            // <6.3 or >7.8 – 8.2 (Using exclusive ranges for clarity with the Good range)
-            value < 6.3 || value in 7.8..8.2 -> SensorStatus("Caution", Orange)
-            else -> SensorStatus("Critical", Red) // <6.0 or >8.2 (Since values in the range 6.0-8.2 are covered by the other cases)
+            value >= SensorRanges.PH_EXCELLENT_MIN && value <= SensorRanges.PH_EXCELLENT_MAX -> SensorStatus("Excellent", Green)
+            (value >= SensorRanges.PH_ACCEPTABLE_MIN && value < SensorRanges.PH_EXCELLENT_MIN) || 
+            (value > SensorRanges.PH_EXCELLENT_MAX && value <= SensorRanges.PH_ACCEPTABLE_MAX) -> SensorStatus("Normal", Blue)
+            (value >= SensorRanges.PH_CAUTION_MIN && value < SensorRanges.PH_ACCEPTABLE_MIN) || 
+            (value > SensorRanges.PH_ACCEPTABLE_MAX && value <= SensorRanges.PH_CAUTION_MAX) -> SensorStatus("Caution", Orange)
+            else -> SensorStatus("Critical", Red) // < PH_CAUTION_MIN or > PH_CAUTION_MAX
         }
 
         "Dissolved Oxygen" -> when {
-            value >= 6.5 -> SensorStatus("Excellent", Green)
-            value >= 5.5 -> SensorStatus("Normal", Blue) // 5.5–6.5
-            value >= 4.0 -> SensorStatus("Caution", Orange)          // 4.0–5.5
-            else -> SensorStatus("Critical", Red)                    // <4.0
+            value >= SensorRanges.DO_EXCELLENT_MIN -> SensorStatus("Excellent", Green)
+            value >= SensorRanges.DO_ACCEPTABLE_MIN -> SensorStatus("Normal", Blue)
+            value >= SensorRanges.DO_CAUTION_MIN -> SensorStatus("Caution", Orange)
+            else -> SensorStatus("Critical", Red) // < DO_CAUTION_MIN
         }
 
         "Water Temp" -> when {
-            value in 24.0..28.0 -> SensorStatus("Excellent", Green)
-            // 22–24 (exclusive of 24) or 28 (exclusive of 28) – 30
-            value in 22.0..<24.0 || value in 28.0..30.0 -> SensorStatus("Normal", Blue)
-            // 20–22 (exclusive of 22) or 30 (exclusive of 30) – 32
-            value in 20.0..<22.0 || value in 30.0..32.0 -> SensorStatus("Caution", Orange)
-            else -> SensorStatus("Critical", Red) // <20 or >32
+            value >= SensorRanges.WATER_TEMP_EXCELLENT_MIN && value <= SensorRanges.WATER_TEMP_EXCELLENT_MAX -> SensorStatus("Excellent", Green)
+            (value >= SensorRanges.WATER_TEMP_ACCEPTABLE_MIN && value < SensorRanges.WATER_TEMP_EXCELLENT_MIN) || 
+            (value > SensorRanges.WATER_TEMP_EXCELLENT_MAX && value <= SensorRanges.WATER_TEMP_ACCEPTABLE_MAX) -> SensorStatus("Normal", Blue)
+            (value >= SensorRanges.WATER_TEMP_CAUTION_MIN && value < SensorRanges.WATER_TEMP_ACCEPTABLE_MIN) || 
+            (value > SensorRanges.WATER_TEMP_ACCEPTABLE_MAX && value <= SensorRanges.WATER_TEMP_CAUTION_MAX) -> SensorStatus("Caution", Orange)
+            else -> SensorStatus("Critical", Red) // < WATER_TEMP_CAUTION_MIN or > WATER_TEMP_CAUTION_MAX
         }
 
         "Air Temp" -> when {
-            value in 21.0..29.0 -> SensorStatus("Excellent", Green)
-            // 19–21 (exclusive of 21) or 29 (exclusive of 29) – 32
-            value in 19.0..<21.0 || value in 29.0..32.0 -> SensorStatus("Normal", Blue)
-            // 17–19 (exclusive of 19) or 32 (exclusive of 32) – 35
-            value in 17.0..<19.0 || value in 32.0..35.0 -> SensorStatus("Caution", Orange)
-            else -> SensorStatus("Critical", Red) // <17 or >35
+            value >= SensorRanges.AIR_TEMP_EXCELLENT_MIN && value <= SensorRanges.AIR_TEMP_EXCELLENT_MAX -> SensorStatus("Excellent", Green)
+            (value >= SensorRanges.AIR_TEMP_ACCEPTABLE_MIN && value < SensorRanges.AIR_TEMP_EXCELLENT_MIN) || 
+            (value > SensorRanges.AIR_TEMP_EXCELLENT_MAX && value <= SensorRanges.AIR_TEMP_ACCEPTABLE_MAX) -> SensorStatus("Normal", Blue)
+            (value >= SensorRanges.AIR_TEMP_CAUTION_MIN && value < SensorRanges.AIR_TEMP_ACCEPTABLE_MIN) || 
+            (value > SensorRanges.AIR_TEMP_ACCEPTABLE_MAX && value <= SensorRanges.AIR_TEMP_CAUTION_MAX) -> SensorStatus("Caution", Orange)
+            else -> SensorStatus("Critical", Red) // < AIR_TEMP_CAUTION_MIN or > AIR_TEMP_CAUTION_MAX
         }
 
         "Humidity" -> when {
-            value in 60.0..70.0 -> SensorStatus("Excellent", Green)
-            // 50–60 (exclusive of 60) or 70 (exclusive of 70) – 80
-            value in 50.0..<60.0 || value in 70.0..80.0 -> SensorStatus("Normal", Blue)
-            // 40–50 (exclusive of 50) or 80 (exclusive of 80) – 90
-            value in 40.0..<50.0 || value in 80.0..90.0 -> SensorStatus("Caution", Orange)
-            else -> SensorStatus("Critical", Red) // <40 or >90
+            value >= SensorRanges.HUMIDITY_EXCELLENT_MIN && value <= SensorRanges.HUMIDITY_EXCELLENT_MAX -> SensorStatus("Excellent", Green)
+            (value >= SensorRanges.HUMIDITY_ACCEPTABLE_MIN && value < SensorRanges.HUMIDITY_EXCELLENT_MIN) || 
+            (value > SensorRanges.HUMIDITY_EXCELLENT_MAX && value <= SensorRanges.HUMIDITY_ACCEPTABLE_MAX) -> SensorStatus("Normal", Blue)
+            (value >= SensorRanges.HUMIDITY_CAUTION_MIN && value < SensorRanges.HUMIDITY_ACCEPTABLE_MIN) || 
+            (value > SensorRanges.HUMIDITY_ACCEPTABLE_MAX && value <= SensorRanges.HUMIDITY_CAUTION_MAX) -> SensorStatus("Caution", Orange)
+            else -> SensorStatus("Critical", Red) // < HUMIDITY_CAUTION_MIN or > HUMIDITY_CAUTION_MAX
         }
 
         else -> SensorStatus("Unknown", Gray)
