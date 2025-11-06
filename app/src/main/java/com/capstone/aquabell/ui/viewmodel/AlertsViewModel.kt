@@ -96,7 +96,13 @@ class AlertsViewModel(
                 if (newAlerts.isNotEmpty()) {
                     newAlerts.forEach { alert ->
                         viewModelScope.launch {
-                            try { repository.pushAlert(alert) } catch (_: Throwable) {}
+                            try {
+                                repository.pushAlert(alert)
+                                // Show local notification for the new alert
+                                try {
+                                    com.capstone.aquabell.ui.utils.NotificationUtils.showAlertNotification(context, alert)
+                                } catch (_: Throwable) { }
+                            } catch (_: Throwable) { }
                         }
                     }
                 }
