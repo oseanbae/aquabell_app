@@ -1,5 +1,6 @@
 package com.capstone.aquabell.ui.utils
 
+import android.annotation.SuppressLint
 import android.content.Context
 import androidx.datastore.preferences.core.Preferences
 import androidx.datastore.preferences.core.edit
@@ -115,12 +116,13 @@ object AlertEvaluator {
         return "${sensor.lowercase()}_${status}_${timestamp}"
     }
 
+    @SuppressLint("DefaultLocale")
     private fun buildTitle(sensor: String, value: Double): String {
         val s = sensor.lowercase()
         val formatted = when (s) {
             "ph" -> String.format("%.2f", value)
             "temperature", "water_temp", "water temperature" -> String.format("%.1f°C", value)
-            "air_temp", "air temperature", "airtemp" -> String.format("%.1f°C", value)
+            "air_temp", "air temperature", "airTemp" -> String.format("%.1f°C", value)
             "humidity" -> String.format("%.0f%%", value)
             "dissolved_oxygen", "do", "oxygen" -> String.format("%.1f mg/L", value)
             "turbidity" -> String.format("%.0f NTU", value)

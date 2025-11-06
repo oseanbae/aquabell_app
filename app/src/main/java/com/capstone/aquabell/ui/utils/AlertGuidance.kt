@@ -1,5 +1,4 @@
 package com.capstone.aquabell.ui.utils
-import com.capstone.aquabell.data.model.SensorRanges
 
 object AlertGuidance {
 
