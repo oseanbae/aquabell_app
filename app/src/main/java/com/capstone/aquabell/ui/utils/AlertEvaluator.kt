@@ -61,14 +61,14 @@ object AlertEvaluator {
             val withinCooldown = reading.timestamp - lastAlertTs < COOLDOWN_MILLIS
             if (withinCooldown) continue
 
-            val statusString = if (isCritical) "critical" else "caution"
-            val guidance = AlertGuidance.guidanceFor(reading.sensor, nowStatus, reading.value)
+            val type = if (isCritical) "critical" else "caution"
+            val title = buildTitle(reading.sensor, reading.value)
+            val message = AlertGuidance.guidanceFor(reading.sensor, nowStatus, reading.value)
             val alert = AlertEntry(
-                id = buildAlertId(reading.sensor, reading.timestamp, statusString),
-                sensor = reading.sensor,
-                value = reading.value,
-                status = statusString,
-                guidance = guidance,
+                alertId = buildAlertId(reading.sensor, reading.timestamp, type),
+                type = type,
+                title = title,
+                message = message,
                 timestamp = reading.timestamp,
                 acknowledged = false
             )
@@ -112,8 +112,37 @@ object AlertEvaluator {
     }
 
     private fun buildAlertId(sensor: String, timestamp: Long, status: String): String {
-        return "${'$'}{sensor.lowercase()}_${'$'}status_${'$'}timestamp"
+        return "${sensor.lowercase()}_${status}_${timestamp}"
     }
+
+    private fun buildTitle(sensor: String, value: Double): String {
+        val s = sensor.lowercase()
+        val formatted = when (s) {
+            "ph" -> String.format("%.2f", value)
+            "temperature", "water_temp", "water temperature" -> String.format("%.1f°C", value)
+            "air_temp", "air temperature", "airtemp" -> String.format("%.1f°C", value)
+            "humidity" -> String.format("%.0f%%", value)
+            "dissolved_oxygen", "do", "oxygen" -> String.format("%.1f mg/L", value)
+            "turbidity" -> String.format("%.0f NTU", value)
+            "float_switch" -> if (value >= 0.5) "LOW" else "Normal"
+
+            else -> String.format("%.2f", value)
+        }
+
+        val label = when (s) {
+            "ph" -> "pH"
+            "temperature", "water_temp", "water temperature" -> "Water Temp"
+            "air_temp", "air temperature", "airtemp" -> "Air Temp"
+            "humidity" -> "Humidity"
+            "dissolved_oxygen", "do", "oxygen" -> "Dissolved O₂"
+            "turbidity" -> "Turbidity"
+            "float_switch" -> "Water Level"
+            else -> sensor.capitalize()
+        }
+
+        return "$label: $formatted"
+    }
+
 }
 
 

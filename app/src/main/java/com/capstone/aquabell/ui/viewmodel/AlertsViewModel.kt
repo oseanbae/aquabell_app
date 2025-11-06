@@ -11,6 +11,7 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.launch
+import com.capstone.aquabell.data.model.SensorRanges
 
 class AlertsViewModel(
     private val repository: FirebaseRepository = FirebaseRepository(),
@@ -23,24 +24,24 @@ class AlertsViewModel(
     val unreadCount: StateFlow<Int> = _unreadCount
 
     private val existingIds: MutableSet<String> = mutableSetOf()
-    private val deviceId: String = "aquabell_esp32"
 
     init {
-        // Listen to stored alerts for device
+        // === Listen to stored alerts (global) ===
         viewModelScope.launch {
-            repository.listenToAlerts(deviceId).collectLatest { list ->
+            repository.listenToAlerts().collectLatest { list ->
                 _alerts.value = list
                 _unreadCount.value = list.count { !it.acknowledged }
                 existingIds.clear()
-                existingIds.addAll(list.map { it.id })
+                existingIds.addAll(list.map { it.alertId })
             }
         }
 
-        // Listen to live data and evaluate new alerts on transitions
+        // === Listen to live data and evaluate new alerts ===
         viewModelScope.launch {
             repository.liveData().collectLatest { live ->
-                if (live == null) return@collectLatest
                 val now = System.currentTimeMillis()
+
+                // Build all sensor readings
                 val readings = listOf(
                     AlertEvaluator.SensorReading(
                         sensor = "pH",
@@ -66,14 +67,33 @@ class AlertsViewModel(
                         status = statusFor("turbidity", live.turbidityNTU),
                         timestamp = now
                     ),
+                    AlertEvaluator.SensorReading(
+                        sensor = "air_temp",
+                        value = live.airTemp,
+                        status = statusFor("air_temp", live.airTemp),
+                        timestamp = now
+                    ),
+                    AlertEvaluator.SensorReading(
+                        sensor = "humidity",
+                        value = live.airHumidity,
+                        status = statusFor("humidity", live.airHumidity),
+                        timestamp = now
+                    ),
+                    AlertEvaluator.SensorReading(
+                        sensor = "float_switch",
+                        value = if (live.floatTriggered) 1.0 else 0.0,
+                        status = if (live.floatTriggered) SensorStatus.Critical else SensorStatus.Good,
+                        timestamp = now
+                    )
+
                 )
 
+                // Evaluate and push only new alerts
                 val context = FirebaseApp.getInstance().applicationContext
                 val newAlerts = AlertEvaluator.evaluateAlerts(context, readings)
-                    .filter { it.id !in existingIds }
+                    .filter { it.alertId !in existingIds }
 
                 if (newAlerts.isNotEmpty()) {
-                    // Persist each new alert
                     newAlerts.forEach { alert ->
                         viewModelScope.launch {
                             try { repository.pushAlert(alert) } catch (_: Throwable) {}
@@ -84,43 +104,82 @@ class AlertsViewModel(
         }
     }
 
+
     fun acknowledgeAlert(id: String) {
         viewModelScope.launch {
             try {
-                repository.acknowledgeAlert(deviceId, id)
+                repository.acknowledgeAlert(id)
+            } catch (_: Throwable) { }
+        }
+    }
+
+    fun clearResolvedAlerts() {
+        viewModelScope.launch {
+            try {
+                repository.deleteResolvedAlerts()
             } catch (_: Throwable) { }
         }
     }
 
     private fun statusFor(sensor: String, value: Double): SensorStatus {
         return when (sensor.lowercase()) {
+
+            // === pH ===
             "ph" -> when {
-                value < 6.5 || value > 8.4 -> SensorStatus.Critical
-                value < 6.8 || value > 8.0 -> SensorStatus.Caution
-                value in 7.0..7.6 -> SensorStatus.Excellent
+                value < SensorRanges.PH_CAUTION_MIN || value > SensorRanges.PH_CAUTION_MAX -> SensorStatus.Critical
+                value < SensorRanges.PH_ACCEPTABLE_MIN || value > SensorRanges.PH_ACCEPTABLE_MAX -> SensorStatus.Caution
+                value in SensorRanges.PH_EXCELLENT_MIN..SensorRanges.PH_EXCELLENT_MAX -> SensorStatus.Excellent
                 else -> SensorStatus.Good
             }
-            "temperature" -> when {
-                value < 20.0 || value > 34.0 -> SensorStatus.Critical
-                value < 22.0 || value > 32.0 -> SensorStatus.Caution
-                value in 26.0..30.0 -> SensorStatus.Excellent
+
+            // === Water Temperature ===
+            "temperature", "water_temp", "water temperature" -> when {
+                value < SensorRanges.WATER_TEMP_CAUTION_MIN || value > SensorRanges.WATER_TEMP_CAUTION_MAX -> SensorStatus.Critical
+                value < SensorRanges.WATER_TEMP_ACCEPTABLE_MIN || value > SensorRanges.WATER_TEMP_ACCEPTABLE_MAX -> SensorStatus.Caution
+                value in SensorRanges.WATER_TEMP_EXCELLENT_MIN..SensorRanges.WATER_TEMP_EXCELLENT_MAX -> SensorStatus.Excellent
                 else -> SensorStatus.Good
             }
+
+            // === Dissolved Oxygen ===
             "dissolved_oxygen", "do", "oxygen" -> when {
-                value < 3.0 -> SensorStatus.Critical
-                value < 5.0 -> SensorStatus.Caution
-                value >= 7.0 -> SensorStatus.Excellent
+                value < SensorRanges.DO_CAUTION_MIN -> SensorStatus.Critical
+                value < SensorRanges.DO_ACCEPTABLE_MIN -> SensorStatus.Caution
+                value >= SensorRanges.DO_EXCELLENT_MIN -> SensorStatus.Excellent
                 else -> SensorStatus.Good
             }
+
+            // === Turbidity ===
             "turbidity" -> when {
-                value >= 150.0 -> SensorStatus.Critical
-                value >= 80.0 -> SensorStatus.Caution
-                value <= 20.0 -> SensorStatus.Excellent
+                value >= SensorRanges.TURBIDITY_CAUTION_MAX -> SensorStatus.Critical
+                value >= SensorRanges.TURBIDITY_ACCEPTABLE_MAX -> SensorStatus.Caution
+                value <= SensorRanges.TURBIDITY_EXCELLENT_MAX -> SensorStatus.Excellent
                 else -> SensorStatus.Good
             }
+
+            // === Air Temperature ===
+            "air_temp", "air temperature" -> when {
+                value < SensorRanges.AIR_TEMP_CAUTION_MIN || value > SensorRanges.AIR_TEMP_CAUTION_MAX -> SensorStatus.Critical
+                value < SensorRanges.AIR_TEMP_ACCEPTABLE_MIN || value > SensorRanges.AIR_TEMP_ACCEPTABLE_MAX -> SensorStatus.Caution
+                value in SensorRanges.AIR_TEMP_EXCELLENT_MIN..SensorRanges.AIR_TEMP_EXCELLENT_MAX -> SensorStatus.Excellent
+                else -> SensorStatus.Good
+            }
+
+            // === Humidity ===
+            "humidity" -> when {
+                value < SensorRanges.HUMIDITY_CAUTION_MIN || value > SensorRanges.HUMIDITY_CAUTION_MAX -> SensorStatus.Critical
+                value < SensorRanges.HUMIDITY_ACCEPTABLE_MIN || value > SensorRanges.HUMIDITY_ACCEPTABLE_MAX -> SensorStatus.Caution
+                value in SensorRanges.HUMIDITY_EXCELLENT_MIN..SensorRanges.HUMIDITY_EXCELLENT_MAX -> SensorStatus.Excellent
+                else -> SensorStatus.Good
+            }
+
+            // === Float Switch (water level) ===
+            "float_switch" -> if (value >= 0.5) SensorStatus.Critical else SensorStatus.Good
+
+            // === Default Fallback ===
             else -> SensorStatus.Good
         }
     }
+
 }
 
 

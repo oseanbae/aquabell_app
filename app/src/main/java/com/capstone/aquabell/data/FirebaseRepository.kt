@@ -113,8 +113,7 @@ class FirebaseRepository(
     private fun liveDataDoc(): DocumentReference = db.collection("live_data").document(deviceId)
     // Removed controlDoc() and commandControlDoc() - now using RTDB for actuator control
     private fun logsCollection() = db.collection("sensor_logs").document(deviceId).collection("logs")
-    private fun alertsCollection(uid: String, deviceId: String) =
-        db.collection("users").document(uid).collection("devices").document(deviceId).collection("alerts")
+    private fun alertsCollection() = db.collection("alerts")
     
     // RTDB references
     private fun commandsRef(): DatabaseReference = rtdb.getReference("commands").child(deviceId)
@@ -175,14 +174,12 @@ class FirebaseRepository(
     suspend fun pushAlert(alert: com.capstone.aquabell.data.model.AlertEntry) {
         try {
             ensureAuth()
-            val uid = auth.currentUser?.uid ?: throw IllegalStateException("No auth user")
-            alertsCollection(uid, deviceId).document(alert.id).set(
+            alertsCollection().document(alert.alertId).set(
                 mapOf(
-                    "id" to alert.id,
-                    "sensor" to alert.sensor,
-                    "value" to alert.value,
-                    "status" to alert.status,
-                    "guidance" to alert.guidance,
+                    "alertId" to alert.alertId,
+                    "type" to alert.type,
+                    "title" to alert.title,
+                    "message" to alert.message,
                     "timestamp" to com.google.firebase.Timestamp(alert.timestamp / 1000, ((alert.timestamp % 1000) * 1_000_000).toInt()),
                     "acknowledged" to alert.acknowledged
                 )
@@ -193,17 +190,13 @@ class FirebaseRepository(
         }
     }
 
-    fun listenToAlerts(deviceId: String): kotlinx.coroutines.flow.Flow<List<com.capstone.aquabell.data.model.AlertEntry>> = callbackFlow {
+    fun listenToAlerts(): kotlinx.coroutines.flow.Flow<List<com.capstone.aquabell.data.model.AlertEntry>> = callbackFlow {
         try {
             repoScope.launch { ensureAuth() }
 
-            // The listener registration needs to be created inside the flow
-            val uid = auth.currentUser?.uid
-
-            val listenerRegistration = if (uid != null) {
-                alertsCollection(uid, deviceId)
-                    .orderBy("timestamp", Query.Direction.DESCENDING)
-                    .addSnapshotListener { snapshot, error ->
+            val listenerRegistration = alertsCollection()
+                .orderBy("timestamp", Query.Direction.DESCENDING)
+                .addSnapshotListener { snapshot, error ->
                         if (error != null) {
                             Log.e(TAG, "listenToAlerts error: ${error.message}", error)
                             trySend(emptyList()).isSuccess
@@ -218,11 +211,10 @@ class FirebaseRepository(
                                 val data = doc.data ?: return@mapNotNull null
                                 val ts = (data["timestamp"] as? com.google.firebase.Timestamp) ?: com.google.firebase.Timestamp.now()
                                 com.capstone.aquabell.data.model.AlertEntry(
-                                    id = data["id"] as? String ?: doc.id,
-                                    sensor = data["sensor"] as? String ?: "",
-                                    value = (data["value"] as? Number)?.toDouble() ?: 0.0,
-                                    status = data["status"] as? String ?: "caution",
-                                    guidance = data["guidance"] as? String ?: "",
+                                    alertId = data["alertId"] as? String ?: doc.id,
+                                    type = data["type"] as? String ?: "caution",
+                                    title = data["title"] as? String ?: "",
+                                    message = data["message"] as? String ?: "",
                                     timestamp = ts.toDate().time,
                                     acknowledged = data["acknowledged"] as? Boolean ?: false
                                 )
@@ -234,16 +226,9 @@ class FirebaseRepository(
                         trySend(items).isSuccess
                         connectionState.tryEmit(ConnectionState.CONNECTED)
                     }
-            } else {
-                // If there's no user ID, we can't listen to alerts.
-                // Send an empty list and log the issue.
-                Log.w(TAG, "Cannot listen to alerts: user is not authenticated.")
-                trySend(emptyList()).isSuccess
-                null // The listener registration is null
-            }
 
             // When the flow is closed, remove the listener if it was created
-            awaitClose { listenerRegistration?.remove() }
+            awaitClose { listenerRegistration.remove() }
 
         } catch (t: Throwable) {
             Log.e(TAG, "listenToAlerts setup failed: ${t.message}", t)
@@ -253,11 +238,32 @@ class FirebaseRepository(
     }
 
 
-    suspend fun acknowledgeAlert(deviceId: String, alertId: String) {
+    suspend fun deleteResolvedAlerts() {
         try {
             ensureAuth()
-            val uid = auth.currentUser?.uid ?: throw IllegalStateException("No auth user")
-            alertsCollection(uid, deviceId).document(alertId).update("acknowledged", true).await()
+            val querySnapshot = alertsCollection()
+                .whereEqualTo("acknowledged", true)
+                .get()
+                .await()
+
+            if (querySnapshot.isEmpty) return
+
+            val batch = db.batch()
+            for (doc in querySnapshot.documents) {
+                batch.delete(doc.reference)
+            }
+            batch.commit().await()
+        } catch (e: Exception) {
+            Log.e(TAG, "deleteResolvedAlerts failed: ${e.message}", e)
+            throw e
+        }
+    }
+
+
+    suspend fun acknowledgeAlert(alertId: String) {
+        try {
+            ensureAuth()
+            alertsCollection().document(alertId).update("acknowledged", true).await()
         } catch (e: Exception) {
             Log.e(TAG, "acknowledgeAlert failed: ${e.message}", e)
             throw e
