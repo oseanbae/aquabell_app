@@ -134,7 +134,7 @@ object AlertEvaluator {
         val label = when (s) {
             "ph" -> "pH"
             "temperature", "water_temp", "water temperature" -> "Water Temp"
-            "air_temp", "air temperature", "airtemp" -> "Air Temp"
+            "air_temp", "air temperature", "airTemp" -> "Air Temp"
             "humidity" -> "Humidity"
             "dissolved_oxygen", "do", "oxygen" -> "Dissolved O₂"
             "turbidity" -> "Turbidity"
@@ -145,6 +145,12 @@ object AlertEvaluator {
         return "$label: $formatted"
     }
 
+    suspend fun resetCooldown(context: Context, sensor: String) {
+        val key = longPreferencesKey("last_alert_ts_${sensor.lowercase()}")
+        context.alertDataStore.edit { prefs ->
+            prefs.remove(key)
+        }
+    }
 }
 
 

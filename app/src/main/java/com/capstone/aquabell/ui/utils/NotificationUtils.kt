@@ -25,6 +25,7 @@ object NotificationUtils {
                 NotificationManager.IMPORTANCE_HIGH
             ).apply {
                 description = "Notifications for new AquaBell alerts"
+                setShowBadge(true) // Enable app icon badge
             }
             val manager = context.getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
             manager.createNotificationChannel(channel)
@@ -49,7 +50,7 @@ object NotificationUtils {
         // Use launcher icon from mipmap as app logo
         val logoBitmap = try {
             BitmapFactory.decodeResource(context.resources, R.mipmap.ic_launcher)
-        } catch (e: Exception) {
+        } catch (_: Exception) {
             null
         }
 

@@ -115,6 +115,12 @@ class AlertsViewModel(
         viewModelScope.launch {
             try {
                 repository.acknowledgeAlert(id)
+
+                // Reset cooldown for this sensor (e.g. "ph_critical_173..."
+                val sensor = id.substringBefore("_")
+                val context = FirebaseApp.getInstance().applicationContext
+                AlertEvaluator.resetCooldown(context, sensor)
+
             } catch (_: Throwable) { }
         }
     }
@@ -122,7 +128,18 @@ class AlertsViewModel(
     fun clearResolvedAlerts() {
         viewModelScope.launch {
             try {
+                // Get all acknowledged alerts before deletion
+                val acknowledgedAlerts = _alerts.value.filter { it.acknowledged }
+
                 repository.deleteResolvedAlerts()
+
+                // Reset cooldowns for those sensors
+                val context = FirebaseApp.getInstance().applicationContext
+                acknowledgedAlerts.forEach { alert ->
+                    val sensor = alert.alertId.substringBefore("_")
+                    AlertEvaluator.resetCooldown(context, sensor)
+                }
+
             } catch (_: Throwable) { }
         }
     }
