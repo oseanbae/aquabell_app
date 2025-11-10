@@ -1288,7 +1288,7 @@ private fun BottomNavBar(selectedIndex: Int, onSelected: (Int) -> Unit) {
             R.drawable.ic_analytics to "Analytics",
             R.drawable.ic_home to "Home",
             R.drawable.ic_bell to "Alerts",
-            0 to "Docs"
+            R.drawable.ic_documentation to "Guide"
         )
         items.forEachIndexed { index, pair ->
             val selected = selectedIndex == index

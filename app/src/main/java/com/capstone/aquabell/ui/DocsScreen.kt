@@ -1,8 +1,14 @@
 package com.capstone.aquabell.ui
 
+import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.animateColorAsState
+import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.animation.core.tween
+import androidx.compose.animation.expandVertically
+import androidx.compose.animation.shrinkVertically
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -20,15 +26,25 @@ import androidx.compose.foundation.lazy.grid.items
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.ExpandMore
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.Divider
+import androidx.compose.material3.HorizontalDivider
+import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedCard
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.saveable.rememberSaveable
+import androidx.compose.runtime.setValue
+import androidx.compose.ui.draw.rotate
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.res.painterResource
@@ -69,7 +85,9 @@ fun DocsScreen(modifier: Modifier = Modifier) {
 		CategorySection(title = "Actuators", components = vm.actuators)
 		CategorySection(title = "Power Components", components = vm.powerComponents)
 		CategorySection(title = "Display & Interface", components = vm.display)
+		CategorySection(title = "Others", components = vm.others)
 
+		// Additional sections")
 		SensorThresholdTable(rows = vm.thresholds)
 
 		AutomationRules(rules = vm.rules)
@@ -80,6 +98,8 @@ fun DocsScreen(modifier: Modifier = Modifier) {
 
 @Composable
 private fun AboutSection() {
+	var expanded by rememberSaveable(key = "about_section") { mutableStateOf(true) } // Default: expanded
+	
 	val accent = MaterialTheme.colorScheme.primary
 	val text = buildAnnotatedString {
 		withStyle(SpanStyle(fontWeight = FontWeight.SemiBold)) {
@@ -103,6 +123,12 @@ private fun AboutSection() {
 		}
 		append(" modes directly from the app.")
 	}
+	
+	val rotationAngle by animateFloatAsState(
+		targetValue = if (expanded) 180f else 0f,
+		animationSpec = tween(durationMillis = 300),
+		label = "about_chevron_rotation"
+	)
 
 	OutlinedCard(
 		colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
@@ -115,27 +141,88 @@ private fun AboutSection() {
 				.padding(16.dp),
 			verticalArrangement = Arrangement.spacedBy(8.dp)
 		) {
-			Text(
-				text = "About Aquabell",
-				style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold)
-			)
-			Text(
-				text = text,
-				style = MaterialTheme.typography.bodyMedium,
-				color = MaterialTheme.colorScheme.onSurface
-			)
+			// Accordion header
+			Row(
+				modifier = Modifier
+					.fillMaxWidth()
+					.clickable { expanded = !expanded },
+				horizontalArrangement = Arrangement.SpaceBetween,
+				verticalAlignment = Alignment.CenterVertically
+			) {
+				Text(
+					text = "About AquaBell",
+					style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold)
+				)
+				Icon(
+					imageVector = Icons.Default.ExpandMore,
+					contentDescription = if (expanded) "Collapse" else "Expand",
+					modifier = Modifier.rotate(rotationAngle),
+					tint = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.7f)
+				)
+			}
+			
+			// Animated content
+			AnimatedVisibility(
+				visible = expanded,
+				enter = expandVertically(animationSpec = tween(300)),
+				exit = shrinkVertically(animationSpec = tween(300))
+			) {
+				Text(
+					text = text,
+					style = MaterialTheme.typography.bodyMedium,
+					color = MaterialTheme.colorScheme.onSurface
+				)
+			}
 		}
 	}
 }
 
 @Composable
 private fun CategorySection(title: String, components: List<HardwareComponent>) {
+	var expanded by rememberSaveable(key = "category_$title") { mutableStateOf(true) } // Default: expanded
+	
+	val rotationAngle by animateFloatAsState(
+		targetValue = if (expanded) 180f else 0f,
+		animationSpec = tween(durationMillis = 300),
+		label = "chevron_rotation"
+	)
+	
 	Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-		Text(
-			text = title,
-			style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold)
+		// Accordion header
+		Row(
+			modifier = Modifier
+				.fillMaxWidth()
+				.clickable { expanded = !expanded }
+				.padding(vertical = 4.dp),
+			horizontalArrangement = Arrangement.SpaceBetween,
+			verticalAlignment = Alignment.CenterVertically
+		) {
+			Text(
+				text = title,
+				style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold)
+			)
+			Icon(
+				imageVector = Icons.Default.ExpandMore,
+				contentDescription = if (expanded) "Collapse" else "Expand",
+				modifier = Modifier.rotate(rotationAngle),
+				tint = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.7f)
+			)
+		}
+		
+		// Animated content
+		AnimatedVisibility(
+			visible = expanded,
+			enter = expandVertically(animationSpec = tween(300)),
+			exit = shrinkVertically(animationSpec = tween(300))
+		) {
+			ComponentsGrid(components)
+		}
+		
+		// Section divider
+		HorizontalDivider(
+			modifier = Modifier.padding(vertical = 4.dp),
+			color = MaterialTheme.colorScheme.outline.copy(alpha = 0.3f)
 		)
-		ComponentsGrid(components)
 	}
 }
 
@@ -151,101 +238,194 @@ private fun ComponentsGrid(components: List<HardwareComponent>) {
 
 @Composable
 private fun ComponentCard(component: HardwareComponent) {
+	var expanded by rememberSaveable(key = "component_${component.name}") { mutableStateOf(false) }
 	val outline = MaterialTheme.colorScheme.outline
+	
+	val rotationAngle by animateFloatAsState(
+		targetValue = if (expanded) 180f else 0f,
+		animationSpec = tween(durationMillis = 300),
+		label = "card_chevron_rotation"
+	)
+
 	OutlinedCard(
-		modifier = Modifier.fillMaxWidth(),
+		modifier = Modifier
+			.fillMaxWidth()
+			.padding(vertical = 6.dp),
 		shape = RoundedCornerShape(16.dp),
 		colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
 		border = androidx.compose.foundation.BorderStroke(1.dp, outline)
 	) {
-		Row(
+		Column(
 			modifier = Modifier
 				.fillMaxWidth()
-				.padding(12.dp),
-			horizontalArrangement = Arrangement.spacedBy(12.dp),
-			verticalAlignment = Alignment.CenterVertically
+				.clickable { expanded = !expanded }
+				.padding(16.dp),
+			verticalArrangement = Arrangement.spacedBy(12.dp)
 		) {
-			// Image container: fixed ratio, fit, neutral tint for transparency
-			Box(
-				modifier = Modifier
-					.size(84.dp)
-					.aspectRatio(1f)
-					.background(MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f), RoundedCornerShape(12.dp)),
-				contentAlignment = Alignment.Center
+			Row(
+				modifier = Modifier.fillMaxWidth(),
+				horizontalArrangement = Arrangement.spacedBy(16.dp),
+				verticalAlignment = Alignment.CenterVertically
 			) {
-				val resId = resolveDrawable(component.imagePath)
-				if (resId != null) {
-					Image(
-						painter = painterResource(id = resId),
-						contentDescription = component.name,
-						contentScale = ContentScale.Fit,
-						modifier = Modifier
-							.padding(12.dp)
-							.fillMaxSize()
-					)
-				} else {
+				// Image container
+				Box(
+					modifier = Modifier
+						.size(120.dp)
+						.aspectRatio(1f)
+						.background(MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f), RoundedCornerShape(12.dp)),
+					contentAlignment = Alignment.Center
+				) {
+					val resId = resolveDrawable(component.imagePath)
+					if (resId != null) {
+						Image(
+							painter = painterResource(id = resId),
+							contentDescription = component.name,
+							contentScale = ContentScale.Fit,
+							modifier = Modifier
+								.fillMaxSize()
+								.padding(10.dp)
+						)
+					} else {
+						Text(
+							text = "No Image",
+							style = MaterialTheme.typography.labelSmall,
+							color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f),
+							textAlign = TextAlign.Center
+						)
+					}
+				}
+				
+				// Name and summary column
+				Column(
+					modifier = Modifier.weight(1f),
+					verticalArrangement = Arrangement.spacedBy(6.dp)
+				) {
+					Row(
+						modifier = Modifier.fillMaxWidth(),
+						horizontalArrangement = Arrangement.SpaceBetween,
+						verticalAlignment = Alignment.CenterVertically
+					) {
+						Text(
+							text = component.name,
+							style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.SemiBold),
+							color = MaterialTheme.colorScheme.onSurface,
+							modifier = Modifier.weight(1f)
+						)
+						
+						// Chevron icon
+						Icon(
+							imageVector = Icons.Default.ExpandMore,
+							contentDescription = if (expanded) "Collapse" else "Expand",
+							modifier = Modifier
+								.size(20.dp)
+								.rotate(rotationAngle),
+							tint = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.7f)
+						)
+					}
+					
 					Text(
-						text = "No Image",
-						style = MaterialTheme.typography.labelSmall,
-						color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f),
-						textAlign = TextAlign.Center
+						text = component.summary,
+						style = MaterialTheme.typography.bodyMedium,
+						color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.85f)
 					)
 				}
 			}
-			Column(modifier = Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(6.dp)) {
-				Text(
-					text = component.name,
-					style = MaterialTheme.typography.titleSmall.copy(fontWeight = FontWeight.SemiBold)
-				)
-				Text(
-					text = component.summary,
-					style = MaterialTheme.typography.bodySmall,
-					color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.85f)
-				)
-				Divider(modifier = Modifier.padding(vertical = 4.dp), color = outline.copy(alpha = 0.4f))
-				Text(
-					text = component.purpose,
-					style = MaterialTheme.typography.bodySmall,
-					color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.8f)
-				)
+			
+			// Expandable purpose section
+			AnimatedVisibility(
+				visible = expanded,
+				enter = expandVertically(animationSpec = tween(300)),
+				exit = shrinkVertically(animationSpec = tween(300))
+			) {
+				Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+					HorizontalDivider(
+						modifier = Modifier.padding(vertical = 4.dp),
+						color = outline.copy(alpha = 0.3f)
+					)
+					
+					Text(
+						text = component.purpose,
+						style = MaterialTheme.typography.bodySmall,
+						color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.8f)
+					)
+				}
 			}
 		}
 	}
 }
 
+
 @Composable
 private fun SensorThresholdTable(rows: List<com.capstone.aquabell.ui.viewmodel.DocsViewModel.ThresholdRow>) {
+	var expanded by rememberSaveable(key = "sensor_threshold_table") { mutableStateOf(true) } // Default: expanded
 	val outline = MaterialTheme.colorScheme.outline
+	
+	val rotationAngle by animateFloatAsState(
+		targetValue = if (expanded) 180f else 0f,
+		animationSpec = tween(durationMillis = 300),
+		label = "threshold_chevron_rotation"
+	)
+	
 	OutlinedCard(
 		shape = RoundedCornerShape(16.dp),
 		colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
 		border = androidx.compose.foundation.BorderStroke(1.dp, outline)
 	) {
-		Column(modifier = Modifier.fillMaxWidth().padding(12.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-			Text(
-				text = "Sensor Thresholds",
-				style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold)
-			)
-			// Header
+		Column(
+			modifier = Modifier
+				.fillMaxWidth()
+				.padding(12.dp),
+			verticalArrangement = Arrangement.spacedBy(8.dp)
+		) {
+			// Accordion header
 			Row(
-				modifier = Modifier.fillMaxWidth().padding(horizontal = 4.dp, vertical = 6.dp),
-				horizontalArrangement = Arrangement.SpaceBetween
+				modifier = Modifier
+					.fillMaxWidth()
+					.clickable { expanded = !expanded },
+				horizontalArrangement = Arrangement.SpaceBetween,
+				verticalAlignment = Alignment.CenterVertically
 			) {
-				Text("Sensor", style = MaterialTheme.typography.labelMedium, modifier = Modifier.weight(1.2f))
-				Text("Min", style = MaterialTheme.typography.labelMedium, textAlign = TextAlign.End, modifier = Modifier.weight(0.8f))
-				Text("Max", style = MaterialTheme.typography.labelMedium, textAlign = TextAlign.End, modifier = Modifier.weight(0.8f))
+				Text(
+					text = "Sensor Thresholds",
+					style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold)
+				)
+				Icon(
+					imageVector = Icons.Default.ExpandMore,
+					contentDescription = if (expanded) "Collapse" else "Expand",
+					modifier = Modifier.rotate(rotationAngle),
+					tint = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.7f)
+				)
 			}
-			Divider(color = outline.copy(alpha = 0.6f))
-			rows.forEach { r ->
-				Row(
-					modifier = Modifier.fillMaxWidth().padding(vertical = 8.dp, horizontal = 4.dp),
-					horizontalArrangement = Arrangement.SpaceBetween
-				) {
-					Text(r.name, style = MaterialTheme.typography.bodySmall, modifier = Modifier.weight(1.2f))
-					Text(r.min, style = MaterialTheme.typography.bodySmall, textAlign = TextAlign.End, modifier = Modifier.weight(0.8f))
-					Text(r.max, style = MaterialTheme.typography.bodySmall, textAlign = TextAlign.End, modifier = Modifier.weight(0.8f))
+			
+			// Animated content
+			AnimatedVisibility(
+				visible = expanded,
+				enter = expandVertically(animationSpec = tween(300)),
+				exit = shrinkVertically(animationSpec = tween(300))
+			) {
+				Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+					// Header
+					Row(
+						modifier = Modifier.fillMaxWidth().padding(horizontal = 4.dp, vertical = 6.dp),
+						horizontalArrangement = Arrangement.SpaceBetween
+					) {
+						Text("Sensor", style = MaterialTheme.typography.labelMedium, modifier = Modifier.weight(1.2f))
+						Text("Min", style = MaterialTheme.typography.labelMedium, textAlign = TextAlign.End, modifier = Modifier.weight(0.8f))
+						Text("Max", style = MaterialTheme.typography.labelMedium, textAlign = TextAlign.End, modifier = Modifier.weight(0.8f))
+					}
+					HorizontalDivider(color = outline.copy(alpha = 0.6f))
+					rows.forEach { r ->
+						Row(
+							modifier = Modifier.fillMaxWidth().padding(vertical = 8.dp, horizontal = 4.dp),
+							horizontalArrangement = Arrangement.SpaceBetween
+						) {
+							Text(r.name, style = MaterialTheme.typography.bodySmall, modifier = Modifier.weight(1.2f))
+							Text(r.min, style = MaterialTheme.typography.bodySmall, textAlign = TextAlign.End, modifier = Modifier.weight(0.8f))
+							Text(r.max, style = MaterialTheme.typography.bodySmall, textAlign = TextAlign.End, modifier = Modifier.weight(0.8f))
+						}
+						HorizontalDivider(color = outline.copy(alpha = 0.15f))
+					}
 				}
-				Divider(color = outline.copy(alpha = 0.15f))
 			}
 		}
 	}
@@ -253,20 +433,61 @@ private fun SensorThresholdTable(rows: List<com.capstone.aquabell.ui.viewmodel.D
 
 @Composable
 private fun AutomationRules(rules: List<com.capstone.aquabell.ui.viewmodel.DocsViewModel.Rule>) {
+	var expanded by rememberSaveable(key = "automation_rules") { mutableStateOf(true) } // Default: expanded
 	val outline = MaterialTheme.colorScheme.outline
+	
+	val rotationAngle by animateFloatAsState(
+		targetValue = if (expanded) 180f else 0f,
+		animationSpec = tween(durationMillis = 300),
+		label = "rules_chevron_rotation"
+	)
+	
 	OutlinedCard(
 		shape = RoundedCornerShape(16.dp),
 		colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
 		border = androidx.compose.foundation.BorderStroke(1.dp, outline)
 	) {
-		Column(modifier = Modifier.fillMaxWidth().padding(12.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-			Text(
-				text = "Automation Rules",
-				style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold)
-			)
-			rules.forEach { rule ->
-				RuleRow(condition = rule.condition, action = rule.action)
-				Divider(color = outline.copy(alpha = 0.15f))
+		Column(
+			modifier = Modifier
+				.fillMaxWidth()
+				.padding(12.dp),
+			verticalArrangement = Arrangement.spacedBy(8.dp)
+		) {
+			// Accordion header
+			Row(
+				modifier = Modifier
+					.fillMaxWidth()
+					.clickable { expanded = !expanded },
+				horizontalArrangement = Arrangement.SpaceBetween,
+				verticalAlignment = Alignment.CenterVertically
+			) {
+				Text(
+					text = "Automation Rules",
+					style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold)
+				)
+				Icon(
+					imageVector = Icons.Default.ExpandMore,
+					contentDescription = if (expanded) "Collapse" else "Expand",
+					modifier = Modifier.rotate(rotationAngle),
+					tint = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.7f)
+				)
+			}
+			
+			// Animated content
+			AnimatedVisibility(
+				visible = expanded,
+				enter = expandVertically(animationSpec = tween(300)),
+				exit = shrinkVertically(animationSpec = tween(300))
+			) {
+				Column(verticalArrangement = Arrangement.spacedBy(0.dp)) {
+					rules.forEachIndexed { index, rule ->
+						RuleRow(condition = rule.condition, action = rule.action)
+						// Only add divider if not the last item
+						if (index < rules.size - 1) {
+							HorizontalDivider(color = outline.copy(alpha = 0.15f))
+						}
+					}
+				}
 			}
 		}
 	}
@@ -296,25 +517,25 @@ private fun RuleRow(condition: String, action: String) {
 private fun resolveDrawable(path: String?): Int? {
 	if (path.isNullOrBlank()) return null
 	return when (path.substringAfterLast('/')) {
-		"esp32.png" -> R.drawable.ic_analytics // placeholder fallback
-		"sensor_dht11.png" -> R.drawable.ic_humidity
-		"sensor_water_temp.png" -> R.drawable.ic_water_temp
-		"sensor_do.png" -> R.drawable.ic_oxygen
-		"sensor_ph.png" -> R.drawable.ic_ph
-		"sensor_float_switch.png" -> R.drawable.ic_float_switch
-		"actuator_fans.png" -> R.drawable.ic_fans
-		"actuator_water_pump.png" -> R.drawable.ic_pump
-		"actuator_air_pump.png" -> R.drawable.ic_oxygen
-		"actuator_valve.png" -> R.drawable.ic_valve
-		"actuator_grow_light.png" -> R.drawable.ic_light
-		"actuator_water_heater.png" -> R.drawable.ic_water_heater
-		"lcd_display.png" -> R.drawable.ic_home
-		"power_ups.png" -> R.drawable.ic_bell
-		"power_solar.png" -> R.drawable.ic_home
-		"power_sps.png" -> R.drawable.ic_home
-		"power_buck.png" -> R.drawable.ic_home
-		"relay_module.png" -> R.drawable.ic_home
-		"pocket_wifi.png" -> R.drawable.ic_home
+		"esp32.png" -> R.drawable.esp32 // placeholder fallback
+		"sensor_dht11.png" -> R.drawable.sensor_dht11
+		"sensor_water_temp.png" -> R.drawable.sensor_water_temp
+		"sensor_do.png" -> R.drawable.sensor_do
+		"sensor_ph.png" -> R.drawable.sensor_ph
+		"sensor_float_switch.png" -> R.drawable.sensor_float_switch
+		"actuator_fans.png" -> R.drawable.actuator_fans
+		"actuator_water_pump.png" -> R.drawable.actuator_water_pump
+		"actuator_air_pump.png" -> R.drawable.actuator_air_pump
+		"actuator_valve.png" -> R.drawable.actuator_valve
+		"actuator_grow_light.png" -> R.drawable.actuator_grow_light
+		"actuator_water_heater.png" -> R.drawable.actuator_water_heater
+		"lcd_display.png" -> R.drawable.lcd_display
+		"power_ups.png" -> R.drawable.power_ups
+		"power_solar.png" -> R.drawable.power_solar
+		"power_sps.png" -> R.drawable.power_sps
+		"power_buck.png" -> R.drawable.power_buck
+		"relay_module.png" -> R.drawable.relay_module
+		"pocket_wifi.png" -> R.drawable.pocket_wifi
 		else -> null
 	}
 }

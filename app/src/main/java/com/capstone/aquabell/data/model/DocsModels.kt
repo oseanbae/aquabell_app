@@ -40,7 +40,7 @@ object ManualContent {
             imagePath = "drawable/sensor_water_temp.png"
         ),
         HardwareComponent(
-            name = "DO Sensor",
+            name = "Dissolve Oxygen Sensor",
             summary = "Monitors dissolved oxygen in the water to keep fish healthy. Triggers aeration when oxygen drops too low.",
             purpose = """
                 Measures Dissolved Oxygen (DO) levels in the water. 

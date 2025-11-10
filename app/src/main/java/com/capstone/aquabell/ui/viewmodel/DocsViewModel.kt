@@ -2,7 +2,7 @@ package com.capstone.aquabell.ui.viewmodel
 
 import androidx.lifecycle.ViewModel
 import com.capstone.aquabell.data.model.ManualContent
-import com.capstone.aquabell.data.model.SensorRanges
+import com.capstone.aquabell.data.model.SensorRanges	
 
 class DocsViewModel : ViewModel() {
 	// Expose categories from ManualContent
