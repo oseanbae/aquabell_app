@@ -107,9 +107,12 @@ fun HomeScreen(modifier: Modifier = Modifier) {
                     onSetActuatorMode = { actuator, mode -> vm.setActuatorMode(actuator, mode) },
                     onSetActuatorValue = { actuator, value -> vm.setActuatorValue(actuator, value) }
                 )
-                else ->  {
+                2 ->  {
                     val alertsVm = androidx.lifecycle.viewmodel.compose.viewModel<com.capstone.aquabell.ui.viewmodel.AlertsViewModel>()
                     AlertsScreen(modifier = Modifier.padding(inner), viewModel = alertsVm)
+                }
+                else -> {
+                    DocsScreen(modifier = Modifier.padding(inner))
                 }
             }
         }
@@ -1276,18 +1279,36 @@ private fun PerActuatorControlGrid(
 
 @Composable
 private fun BottomNavBar(selectedIndex: Int, onSelected: (Int) -> Unit) {
-    NavigationBar {
+    val containerColor = MaterialTheme.colorScheme.surface.copy(alpha = 0.9f)
+    NavigationBar(
+        containerColor = containerColor,
+        tonalElevation = 8.dp
+    ) {
         val items: List<Pair<Int, String>> = listOf(
             R.drawable.ic_analytics to "Analytics",
             R.drawable.ic_home to "Home",
-            R.drawable.ic_bell to "Alerts"
+            R.drawable.ic_bell to "Alerts",
+            0 to "Docs"
         )
         items.forEachIndexed { index, pair ->
+            val selected = selectedIndex == index
+            val activeColor = MaterialTheme.colorScheme.primary
+            val inactiveColor = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.7f)
+            val iconTint = if (selected) activeColor else inactiveColor
             NavigationBarItem(
-                selected = selectedIndex == index,
+                selected = selected,
                 onClick = { onSelected(index) },
                 icon = {
-                    if (pair.second == "Alerts") {
+                    if (pair.second == "Docs") {
+                        Icon(
+                            imageVector = Icons.Default.Info,
+                            contentDescription = pair.second,
+                            modifier = Modifier
+                                .size(if (selected) 26.dp else 24.dp)
+                                .scale(if (selected) 1.06f else 1f),
+                            tint = iconTint
+                        )
+                    } else if (pair.second == "Alerts") {
                         val vm = androidx.lifecycle.viewmodel.compose.viewModel<com.capstone.aquabell.ui.viewmodel.AlertsViewModel>()
                         val count = vm.unreadCount.collectAsState(initial = 0)
                         BadgedBox(badge = {
@@ -1298,20 +1319,27 @@ private fun BottomNavBar(selectedIndex: Int, onSelected: (Int) -> Unit) {
                             Icon(
                                 painter = painterResource(id = pair.first),
                                 contentDescription = pair.second,
-                                modifier = Modifier.size(24.dp),
-                                tint = Color.Unspecified
+                                modifier = Modifier.size(if (selected) 26.dp else 24.dp),
+                                tint = iconTint
                             )
                         }
                     } else {
                         Icon(
                             painter = painterResource(id = pair.first),
                             contentDescription = pair.second,
-                            modifier = Modifier.size(24.dp),
-                            tint = Color.Unspecified
+                            modifier = Modifier
+                                .size(if (selected) 26.dp else 24.dp)
+                                .scale(if (selected) 1.06f else 1f),
+                            tint = iconTint
                         )
                     }
                 },
-                label = { Text(pair.second) }
+                label = {
+                    Text(
+                        pair.second,
+                        color = if (selected) activeColor else inactiveColor
+                    )
+                }
             )
         }
     }
