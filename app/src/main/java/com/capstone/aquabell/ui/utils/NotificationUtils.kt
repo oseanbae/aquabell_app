@@ -40,33 +40,42 @@ object NotificationUtils {
         val pendingFlags = PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
         val pendingIntent = PendingIntent.getActivity(context, 1001, intent, pendingFlags)
 
-        // Use colors from Color.kt (lines 15-18)
-        val accentColor = when (alert.type.lowercase()) {
-            "critical" -> 0xFFEF5350.toInt() // AccentDanger
-            "caution" -> 0xFFFFB020.toInt()   // AccentWarning
-            else -> 0xFF2BB673.toInt()        // AccentSuccess
+        // Determine accent color based on alert type (from Color.kt lines 15-18)
+        val accentColor = when {
+            alert.acknowledged -> 0xFF2BB673.toInt() // AccentSuccess - resolved alerts
+            alert.type.equals("critical", ignoreCase = true) -> 0xFFEF5350.toInt() // AccentDanger - red
+            alert.type.equals("caution", ignoreCase = true) -> 0xFFFFB020.toInt() // AccentWarning - orange
+            else -> 0xFF2BB673.toInt() // AccentSuccess - default
         }
 
-        // Use launcher icon from mipmap as app logo
+        // Use round launcher icon from mipmap as app logo for both small and large icons
         val logoBitmap = try {
-            BitmapFactory.decodeResource(context.resources, R.mipmap.ic_launcher)
+            BitmapFactory.decodeResource(context.resources, R.mipmap.ic_launcher_round)
         } catch (_: Exception) {
             null
         }
 
         val builder = NotificationCompat.Builder(context, ALERTS_CHANNEL_ID)
-            // Use a proper monochrome small icon in drawable to ensure delivery across Android versions
-            .setSmallIcon(R.drawable.ic_notification)
+            // Use round app icon as small icon - works across all devices
+            // Android will automatically handle the icon rendering for notifications
+            .setSmallIcon(R.mipmap.ic_launcher_round)
             .setContentTitle(alert.title)
             .setContentText(alert.message)
             .setStyle(NotificationCompat.BigTextStyle().bigText(alert.message))
-            .setPriority(NotificationCompat.PRIORITY_HIGH)
+            .setPriority(
+                if (alert.type.equals("critical", ignoreCase = true)) {
+                    NotificationCompat.PRIORITY_HIGH
+                } else {
+                    NotificationCompat.PRIORITY_DEFAULT
+                }
+            )
             .setAutoCancel(true)
             .setContentIntent(pendingIntent)
+            // Set color-coded accent border based on alert type
             .setColor(accentColor)
             .setColorized(true)
         
-        // Set large icon only if bitmap was successfully decoded
+        // Set large icon with app logo if available
         logoBitmap?.let {
             builder.setLargeIcon(it)
         }
