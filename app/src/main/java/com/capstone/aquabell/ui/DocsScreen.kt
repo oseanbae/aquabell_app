@@ -1,11 +1,13 @@
 package com.capstone.aquabell.ui
 
+import android.content.Context
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.animateColorAsState
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.tween
 import androidx.compose.animation.expandVertically
 import androidx.compose.animation.shrinkVertically
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
@@ -36,9 +38,11 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedCard
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.draw.rotate
@@ -47,6 +51,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.SpanStyle
 import androidx.compose.ui.text.buildAnnotatedString
@@ -55,10 +60,18 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.withStyle
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.datastore.preferences.core.booleanPreferencesKey
+import androidx.datastore.preferences.core.edit
+import androidx.datastore.preferences.preferencesDataStore
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.capstone.aquabell.R
 import com.capstone.aquabell.data.model.HardwareComponent
 import com.capstone.aquabell.ui.viewmodel.DocsViewModel
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.map
+import kotlinx.coroutines.launch
 
 @Composable
 fun DocsScreen(modifier: Modifier = Modifier) {
@@ -97,9 +110,36 @@ fun DocsScreen(modifier: Modifier = Modifier) {
 }
 
 @Composable
+fun rememberPersistentExpandedState(context: Context, key: String): Pair<Boolean, (Boolean) -> Unit> {
+	val scope = rememberCoroutineScope()
+	val expandedFlow = remember { context.getExpandedStateFlow(key) }
+	val expanded by expandedFlow.collectAsState(initial = false)
+
+	val onExpandedChange: (Boolean) -> Unit = { newValue ->
+		scope.launch {
+			context.saveExpandedState(key, newValue)
+		}
+	}
+
+	return expanded to onExpandedChange
+}
+
+val Context.docsPrefs by preferencesDataStore("docs_state")
+
+suspend fun Context.saveExpandedState(key: String, expanded: Boolean) {
+	docsPrefs.edit { prefs ->
+		prefs[booleanPreferencesKey(key)] = expanded
+	}
+}
+
+fun Context.getExpandedStateFlow(key: String): Flow<Boolean> =
+	docsPrefs.data.map { prefs -> prefs[booleanPreferencesKey(key)] ?: false }
+
+@Composable
 private fun AboutSection() {
-	var expanded by rememberSaveable(key = "about_section") { mutableStateOf(true) } // Default: expanded
-	
+	val context = LocalContext.current
+	val (expanded, setExpanded) = rememberPersistentExpandedState(context, "about_section")
+
 	val accent = MaterialTheme.colorScheme.primary
 	val text = buildAnnotatedString {
 		withStyle(SpanStyle(fontWeight = FontWeight.SemiBold)) {
@@ -133,7 +173,7 @@ private fun AboutSection() {
 	OutlinedCard(
 		colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
 		shape = RoundedCornerShape(16.dp),
-		border = androidx.compose.foundation.BorderStroke(1.dp, MaterialTheme.colorScheme.outline)
+		border = BorderStroke(1.dp, MaterialTheme.colorScheme.outline)
 	) {
 		Column(
 			modifier = Modifier
@@ -145,7 +185,8 @@ private fun AboutSection() {
 			Row(
 				modifier = Modifier
 					.fillMaxWidth()
-					.clickable { expanded = !expanded },
+					.clickable { setExpanded(!expanded) }
+					.padding(vertical = 4.dp),
 				horizontalArrangement = Arrangement.SpaceBetween,
 				verticalAlignment = Alignment.CenterVertically
 			) {
@@ -179,7 +220,9 @@ private fun AboutSection() {
 
 @Composable
 private fun CategorySection(title: String, components: List<HardwareComponent>) {
-	var expanded by rememberSaveable(key = "category_$title") { mutableStateOf(true) } // Default: expanded
+	val context = LocalContext.current
+	val key = "category_$title"
+	val (expanded, setExpanded) = rememberPersistentExpandedState(context, key)
 	
 	val rotationAngle by animateFloatAsState(
 		targetValue = if (expanded) 180f else 0f,
@@ -192,7 +235,7 @@ private fun CategorySection(title: String, components: List<HardwareComponent>) 
 		Row(
 			modifier = Modifier
 				.fillMaxWidth()
-				.clickable { expanded = !expanded }
+				.clickable { setExpanded(!expanded) }
 				.padding(vertical = 4.dp),
 			horizontalArrangement = Arrangement.SpaceBetween,
 			verticalAlignment = Alignment.CenterVertically
@@ -238,7 +281,9 @@ private fun ComponentsGrid(components: List<HardwareComponent>) {
 
 @Composable
 private fun ComponentCard(component: HardwareComponent) {
-	var expanded by rememberSaveable(key = "component_${component.name}") { mutableStateOf(false) }
+	val context = LocalContext.current
+	val key = "component_${component.name}"
+	val (expanded, setExpanded) = rememberPersistentExpandedState(context, key)
 	val outline = MaterialTheme.colorScheme.outline
 	
 	val rotationAngle by animateFloatAsState(
@@ -253,12 +298,12 @@ private fun ComponentCard(component: HardwareComponent) {
 			.padding(vertical = 6.dp),
 		shape = RoundedCornerShape(16.dp),
 		colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
-		border = androidx.compose.foundation.BorderStroke(1.dp, outline)
+		border = BorderStroke(1.dp, outline)
 	) {
 		Column(
 			modifier = Modifier
 				.fillMaxWidth()
-				.clickable { expanded = !expanded }
+				.clickable { setExpanded(!expanded) }
 				.padding(16.dp),
 			verticalArrangement = Arrangement.spacedBy(12.dp)
 		) {
@@ -356,8 +401,11 @@ private fun ComponentCard(component: HardwareComponent) {
 
 
 @Composable
-private fun SensorThresholdTable(rows: List<com.capstone.aquabell.ui.viewmodel.DocsViewModel.ThresholdRow>) {
-	var expanded by rememberSaveable(key = "sensor_threshold_table") { mutableStateOf(true) } // Default: expanded
+private fun SensorThresholdTable(rows: List<DocsViewModel.ThresholdRow>) {
+	val context = LocalContext.current
+	val key = "sensor_threshold_table"
+	val (expanded, setExpanded) = rememberPersistentExpandedState(context, key)
+
 	val outline = MaterialTheme.colorScheme.outline
 	
 	val rotationAngle by animateFloatAsState(
@@ -369,7 +417,7 @@ private fun SensorThresholdTable(rows: List<com.capstone.aquabell.ui.viewmodel.D
 	OutlinedCard(
 		shape = RoundedCornerShape(16.dp),
 		colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
-		border = androidx.compose.foundation.BorderStroke(1.dp, outline)
+		border = BorderStroke(1.dp, outline)
 	) {
 		Column(
 			modifier = Modifier
@@ -381,7 +429,8 @@ private fun SensorThresholdTable(rows: List<com.capstone.aquabell.ui.viewmodel.D
 			Row(
 				modifier = Modifier
 					.fillMaxWidth()
-					.clickable { expanded = !expanded },
+					.clickable { setExpanded(!expanded) }
+					.padding(vertical = 4.dp),
 				horizontalArrangement = Arrangement.SpaceBetween,
 				verticalAlignment = Alignment.CenterVertically
 			) {
@@ -432,8 +481,10 @@ private fun SensorThresholdTable(rows: List<com.capstone.aquabell.ui.viewmodel.D
 }
 
 @Composable
-private fun AutomationRules(rules: List<com.capstone.aquabell.ui.viewmodel.DocsViewModel.Rule>) {
-	var expanded by rememberSaveable(key = "automation_rules") { mutableStateOf(true) } // Default: expanded
+private fun AutomationRules(rules: List<DocsViewModel.Rule>) {
+	val context = LocalContext.current
+	val key = "automation_rules"
+	val (expanded, setExpanded) = rememberPersistentExpandedState(context, key)
 	val outline = MaterialTheme.colorScheme.outline
 	
 	val rotationAngle by animateFloatAsState(
@@ -445,7 +496,7 @@ private fun AutomationRules(rules: List<com.capstone.aquabell.ui.viewmodel.DocsV
 	OutlinedCard(
 		shape = RoundedCornerShape(16.dp),
 		colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
-		border = androidx.compose.foundation.BorderStroke(1.dp, outline)
+		border = BorderStroke(1.dp, outline)
 	) {
 		Column(
 			modifier = Modifier
@@ -457,7 +508,8 @@ private fun AutomationRules(rules: List<com.capstone.aquabell.ui.viewmodel.DocsV
 			Row(
 				modifier = Modifier
 					.fillMaxWidth()
-					.clickable { expanded = !expanded },
+					.clickable { setExpanded(!expanded) }
+					.padding(vertical = 4.dp),
 				horizontalArrangement = Arrangement.SpaceBetween,
 				verticalAlignment = Alignment.CenterVertically
 			) {
