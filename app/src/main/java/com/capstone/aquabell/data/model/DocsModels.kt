@@ -141,6 +141,18 @@ object ManualContent {
                 RULE: Heater ON if water temp < ${SensorRanges.WATER_TEMP_ACCEPTABLE_MIN}°C; OFF when above ${SensorRanges.WATER_TEMP_EXCELLENT_MIN}°C.
             """.trimIndent(),
             imagePath = "drawable/actuator_water_heater.png"
+        ),
+        HardwareComponent(
+            name = "pH Dosing Pump",
+            summary = "Automatically corrects water pH by dispensing acid or base in controlled pulses through a diaphragm pump.",
+            purpose = """
+                This component maintains stable pH levels in the aquaponics system. 
+                When the pH drops below the safe range, the system triggers short bursts of the pH UP solution; 
+                when it rises too high, it doses a pH DOWN solution instead. 
+                Each dosing cycle is divided into multiple timed pulses with rest periods between cycles to prevent overcorrection and chemical shock.
+                The diaphragm pump provides precise micro-dosing, ensuring gradual pH correction while keeping the fish and plants safe.
+            """.trimIndent(),
+            imagePath = "drawable/actuator_ph_pump.png"
         )
     )
 

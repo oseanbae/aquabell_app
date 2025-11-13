@@ -582,6 +582,7 @@ private fun resolveDrawable(path: String?): Int? {
 		"actuator_valve.png" -> R.drawable.actuator_valve
 		"actuator_grow_light.png" -> R.drawable.actuator_grow_light
 		"actuator_water_heater.png" -> R.drawable.actuator_water_heater
+		"actuator_ph_pump.png" -> R.drawable.actuator_ph_pump
 		"lcd_display.png" -> R.drawable.lcd_display
 		"power_ups.png" -> R.drawable.power_ups
 		"power_solar.png" -> R.drawable.power_solar
