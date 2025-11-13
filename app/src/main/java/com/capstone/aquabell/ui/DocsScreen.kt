@@ -11,6 +11,7 @@ import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -22,16 +23,13 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.lazy.grid.GridCells
-import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
-import androidx.compose.foundation.lazy.grid.items
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.ExpandMore
 import androidx.compose.material3.CardDefaults
-import androidx.compose.material3.Divider
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
@@ -40,15 +38,11 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
-import androidx.compose.runtime.saveable.rememberSaveable
-import androidx.compose.runtime.setValue
 import androidx.compose.ui.draw.rotate
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
@@ -59,7 +53,6 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.withStyle
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.unit.sp
 import androidx.datastore.preferences.core.booleanPreferencesKey
 import androidx.datastore.preferences.core.edit
 import androidx.datastore.preferences.preferencesDataStore
@@ -67,8 +60,6 @@ import androidx.lifecycle.viewmodel.compose.viewModel
 import com.capstone.aquabell.R
 import com.capstone.aquabell.data.model.HardwareComponent
 import com.capstone.aquabell.ui.viewmodel.DocsViewModel
-import kotlinx.coroutines.CoroutineScope
-import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.launch
@@ -407,13 +398,20 @@ private fun SensorThresholdTable(rows: List<DocsViewModel.ThresholdRow>) {
 	val (expanded, setExpanded) = rememberPersistentExpandedState(context, key)
 
 	val outline = MaterialTheme.colorScheme.outline
-	
 	val rotationAngle by animateFloatAsState(
 		targetValue = if (expanded) 180f else 0f,
 		animationSpec = tween(durationMillis = 300),
 		label = "threshold_chevron_rotation"
 	)
-	
+
+	// Status colors
+	val statusColors = mapOf(
+		"Excellent" to Color(0xFF4CAF50), // Green
+		"Normal" to Color(0xFF2196F3),    // Blue
+		"Caution" to Color(0xFFFF9800),   // Orange
+		"Critical" to Color(0xFFF44336)   // Red
+	)
+
 	OutlinedCard(
 		shape = RoundedCornerShape(16.dp),
 		colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
@@ -435,7 +433,7 @@ private fun SensorThresholdTable(rows: List<DocsViewModel.ThresholdRow>) {
 				verticalAlignment = Alignment.CenterVertically
 			) {
 				Text(
-					text = "Sensor Thresholds",
+					text = "Sensor Thresholds & Intervals",
 					style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold)
 				)
 				Icon(
@@ -445,40 +443,79 @@ private fun SensorThresholdTable(rows: List<DocsViewModel.ThresholdRow>) {
 					tint = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.7f)
 				)
 			}
-			
+
 			// Animated content
 			AnimatedVisibility(
 				visible = expanded,
 				enter = expandVertically(animationSpec = tween(300)),
 				exit = shrinkVertically(animationSpec = tween(300))
 			) {
-				Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-					// Header
-					Row(
-						modifier = Modifier.fillMaxWidth().padding(horizontal = 4.dp, vertical = 6.dp),
-						horizontalArrangement = Arrangement.SpaceBetween
-					) {
-						Text("Sensor", style = MaterialTheme.typography.labelMedium, modifier = Modifier.weight(1.2f))
-						Text("Min", style = MaterialTheme.typography.labelMedium, textAlign = TextAlign.End, modifier = Modifier.weight(0.8f))
-						Text("Max", style = MaterialTheme.typography.labelMedium, textAlign = TextAlign.End, modifier = Modifier.weight(0.8f))
-					}
-					HorizontalDivider(color = outline.copy(alpha = 0.6f))
-					rows.forEach { r ->
+				// Horizontal scrollable table
+				Row(
+					modifier = Modifier
+						.fillMaxWidth()
+						.horizontalScroll(rememberScrollState())
+				) {
+					Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+						// Table header
 						Row(
-							modifier = Modifier.fillMaxWidth().padding(vertical = 8.dp, horizontal = 4.dp),
-							horizontalArrangement = Arrangement.SpaceBetween
+							modifier = Modifier
+								.fillMaxWidth()
+								.padding(horizontal = 4.dp, vertical = 6.dp),
+							horizontalArrangement = Arrangement.spacedBy(4.dp)
 						) {
-							Text(r.name, style = MaterialTheme.typography.bodySmall, modifier = Modifier.weight(1.2f))
-							Text(r.min, style = MaterialTheme.typography.bodySmall, textAlign = TextAlign.End, modifier = Modifier.weight(0.8f))
-							Text(r.max, style = MaterialTheme.typography.bodySmall, textAlign = TextAlign.End, modifier = Modifier.weight(0.8f))
+							Text("Sensor", style = MaterialTheme.typography.labelMedium, modifier = Modifier.width(140.dp))
+							Text("Reading Interval", style = MaterialTheme.typography.labelMedium, textAlign = TextAlign.End, modifier = Modifier.width(120.dp))
+							Text("Excellent", style = MaterialTheme.typography.labelMedium, textAlign = TextAlign.End, modifier = Modifier.width(100.dp))
+							Text("Normal", style = MaterialTheme.typography.labelMedium, textAlign = TextAlign.End, modifier = Modifier.width(100.dp))
+							Text("Caution", style = MaterialTheme.typography.labelMedium, textAlign = TextAlign.End, modifier = Modifier.width(100.dp))
+							Text("Critical", style = MaterialTheme.typography.labelMedium, textAlign = TextAlign.End, modifier = Modifier.width(100.dp))
 						}
-						HorizontalDivider(color = outline.copy(alpha = 0.15f))
+						HorizontalDivider(color = outline.copy(alpha = 0.6f))
+
+						// Table rows
+						rows.forEach { r ->
+							Row(
+								modifier = Modifier
+									.fillMaxWidth()
+									.padding(vertical = 6.dp, horizontal = 4.dp),
+								horizontalArrangement = Arrangement.spacedBy(4.dp)
+							) {
+								Text(r.name, style = MaterialTheme.typography.bodySmall, modifier = Modifier.width(140.dp))
+								Text(r.readingInterval, style = MaterialTheme.typography.bodySmall, textAlign = TextAlign.End, modifier = Modifier.width(120.dp))
+								// Status cells with color
+								r.statusRanges.forEachIndexed { index, s ->
+									val statusName = when (index) {
+										0 -> "Excellent"
+										1 -> "Normal"
+										2 -> "Caution"
+										3 -> "Critical"
+										else -> ""
+									}
+									Box(
+										modifier = Modifier
+											.width(100.dp)
+											.background((statusColors[statusName] ?: Color.Gray).copy(alpha = 0.15f))
+											.padding(vertical = 4.dp),
+										contentAlignment = Alignment.Center
+									) {
+										Text(
+											text = "${s.min} - ${s.max}",
+											style = MaterialTheme.typography.bodySmall,
+											color = statusColors[statusName] ?: Color.Gray
+										)
+									}
+								}
+							}
+							HorizontalDivider(color = outline.copy(alpha = 0.15f))
+						}
 					}
 				}
 			}
 		}
 	}
 }
+
 
 @Composable
 private fun AutomationRules(rules: List<DocsViewModel.Rule>) {

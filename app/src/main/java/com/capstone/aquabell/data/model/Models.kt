@@ -86,6 +86,14 @@ data class ActuatorStates(
     val cooler: ActuatorState = ActuatorState(),
     val heater: ActuatorState = ActuatorState()
 )
+object SensorInterval {
+    const val pH = 60
+    const val dissolvedOxygen = 15
+    const val waterTemp = 10
+    const val airTemp = 60
+    const val airHumidity = 60
+    const val turbidityNTU = 30
+}
 
 object SensorRanges {
     //pH
@@ -94,39 +102,38 @@ object SensorRanges {
     const val PH_ACCEPTABLE_MIN = 6.3
     const val PH_ACCEPTABLE_MAX = 7.8
     const val PH_CAUTION_MIN = 6.0
-    const val PH_CAUTION_MAX = 8.5   // was 8.2, corrected to 8.5 per final table
+    const val PH_CAUTION_MAX = 8.5
 
-    //Dissolved Oxygen (mg/L)
-    const val DO_EXCELLENT_MIN = 6.0   // you put 6.5; adjust to real tilapia baseline
-    const val DO_ACCEPTABLE_MIN = 5.0  // was 5.5, align to table
+    // Dissolved Oxygen
+    const val DO_EXCELLENT_MIN = 6.5
+    const val DO_ACCEPTABLE_MIN = 5.5
     const val DO_CAUTION_MIN = 4.0
 
-    //Water Temperature (°C)
-    const val WATER_TEMP_EXCELLENT_MIN = 26.0   // aligned to 26–28 best practice
+    // Water Temperature
+    const val WATER_TEMP_EXCELLENT_MIN = 24.0
     const val WATER_TEMP_EXCELLENT_MAX = 28.0
-    const val WATER_TEMP_ACCEPTABLE_MIN = 24.0
-    const val WATER_TEMP_ACCEPTABLE_MAX = 29.0
-    const val WATER_TEMP_CAUTION_MIN = 22.0
-    const val WATER_TEMP_CAUTION_MAX = 30.0
-    // Critical handled in logic, not threshold constants here
+    const val WATER_TEMP_ACCEPTABLE_MIN = 22.0
+    const val WATER_TEMP_ACCEPTABLE_MAX = 30.0
+    const val WATER_TEMP_CAUTION_MIN = 20.0
+    const val WATER_TEMP_CAUTION_MAX = 32.0
 
-    // Air Temperature (°C)
-    const val AIR_TEMP_EXCELLENT_MIN = 22.0
-    const val AIR_TEMP_EXCELLENT_MAX = 30.0
-    const val AIR_TEMP_ACCEPTABLE_MIN = 20.0
+    // Air Temperature
+    const val AIR_TEMP_EXCELLENT_MIN = 21.0
+    const val AIR_TEMP_EXCELLENT_MAX = 29.0
+    const val AIR_TEMP_ACCEPTABLE_MIN = 19.0
     const val AIR_TEMP_ACCEPTABLE_MAX = 32.0
-    const val AIR_TEMP_CAUTION_MIN = 18.0
+    const val AIR_TEMP_CAUTION_MIN = 17.0
     const val AIR_TEMP_CAUTION_MAX = 35.0
 
-    //  Humidity (%)
+    // Humidity
     const val HUMIDITY_EXCELLENT_MIN = 60.0
-    const val HUMIDITY_EXCELLENT_MAX = 75.0   // adjusted from 70% to match real grow-bed sweet spot
+    const val HUMIDITY_EXCELLENT_MAX = 70.0
     const val HUMIDITY_ACCEPTABLE_MIN = 50.0
-    const val HUMIDITY_ACCEPTABLE_MAX = 85.0
+    const val HUMIDITY_ACCEPTABLE_MAX = 80.0
     const val HUMIDITY_CAUTION_MIN = 40.0
     const val HUMIDITY_CAUTION_MAX = 90.0
 
-    // Turbidity (NTU)
+    // Turbidity
     const val TURBIDITY_EXCELLENT_MAX = 50.0
     const val TURBIDITY_ACCEPTABLE_MAX = 120.0
     const val TURBIDITY_CAUTION_MAX = 250.0
