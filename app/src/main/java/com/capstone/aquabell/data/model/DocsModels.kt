@@ -60,6 +60,16 @@ object ManualContent {
             imagePath = "drawable/sensor_ph.png"
         ),
         HardwareComponent(
+            name = "Turbidity Sensor",
+            summary = "Monitors water clarity in the sump tank after filtration to assess filtration efficiency and water quality.",
+            purpose = """
+                Measures the turbidity (cloudiness) of the water in the sump tank after it passes through the filtration system. 
+                High turbidity indicates poor filtration or dirty water, triggering an alert for maintenance or filter cleaning. 
+                The sensor helps ensure clear and healthy water circulation within the aquaponics system.
+            """.trimIndent(),
+            imagePath = "drawable/sensor_turbidity.png"
+        ),
+        HardwareComponent(
             name = "Float Switch",
             summary = "Detects low water level in the fish tank and triggers automatic refill via solenoid valve.",
             purpose = """

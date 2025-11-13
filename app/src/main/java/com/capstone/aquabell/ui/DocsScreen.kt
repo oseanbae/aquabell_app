@@ -575,6 +575,7 @@ private fun resolveDrawable(path: String?): Int? {
 		"sensor_do.png" -> R.drawable.sensor_do
 		"sensor_ph.png" -> R.drawable.sensor_ph
 		"sensor_float_switch.png" -> R.drawable.sensor_float_switch
+		"sensor_turbidity.png" -> R.drawable.sensor_turbidity
 		"actuator_fans.png" -> R.drawable.actuator_fans
 		"actuator_water_pump.png" -> R.drawable.actuator_water_pump
 		"actuator_air_pump.png" -> R.drawable.actuator_air_pump
