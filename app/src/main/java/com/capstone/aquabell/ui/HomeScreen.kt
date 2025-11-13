@@ -1,6 +1,8 @@
 package com.capstone.aquabell.ui
 
 import androidx.compose.animation.AnimatedContent
+import androidx.compose.animation.animateColorAsState
+import androidx.compose.animation.core.tween
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.animation.slideInVertically
@@ -822,141 +824,6 @@ private fun ControlHeader() {
 }
 
 @Composable
-private fun ControlGrid(autoEnabled: Boolean, live: com.capstone.aquabell.data.model.LiveDataSnapshot?, onOverride: (RelayStates) -> Unit) {
-    val outline = MaterialTheme.colorScheme.outline
-    var lightOn by remember { mutableStateOf(false) }
-    var fansOn by remember { mutableStateOf(false) }
-    var pumpOn by remember { mutableStateOf(false) }
-    var valveOpen by remember { mutableStateOf(false) }
-
-    LaunchedEffect(live?.relayStates) {
-        live?.relayStates?.let { rs ->
-            lightOn = rs.light
-            fansOn = rs.fan
-            pumpOn = rs.waterPump
-            valveOpen = rs.valve
-        }
-    }
-
-    LaunchedEffect(autoEnabled) {
-        if (autoEnabled) {
-            lightOn = false
-            fansOn = false
-            pumpOn = false
-            valveOpen = false
-        }
-    }
-
-    // Pleasant, AquaBell-aligned accent colors per control
-    val lightColor = Color(0xFFFFC107) // warm amber
-    val fansColor = Color(0xFF42A5F5)  // sky blue
-    val pumpColor = Color(0xFF26A69A)  // teal
-    val valveColor = Color(0xFF66BB6A) // fresh green
-
-    data class ControlSpec(
-        val title: String,
-        val iconRes: Int,
-        val active: Boolean,
-        val accent: Color,
-        val toggle: () -> Unit
-    )
-    val tiles: List<ControlSpec> = listOf(
-        ControlSpec("LIGHT", R.drawable.ic_light, lightOn, lightColor) { 
-            lightOn = !lightOn; if (!autoEnabled) onOverride(RelayStates(fan = fansOn, light = lightOn, waterPump = pumpOn, valve = valveOpen))
-        },
-        ControlSpec("FANS", R.drawable.ic_fans, fansOn, fansColor) { 
-            fansOn = !fansOn; if (!autoEnabled) onOverride(RelayStates(fan = fansOn, light = lightOn, waterPump = pumpOn, valve = valveOpen))
-        },
-        ControlSpec("PUMP", R.drawable.ic_pump, pumpOn, pumpColor) { 
-            pumpOn = !pumpOn; if (!autoEnabled) onOverride(RelayStates(fan = fansOn, light = lightOn, waterPump = pumpOn, valve = valveOpen))
-        },
-        ControlSpec("VALVE", R.drawable.ic_valve, valveOpen, valveColor) { 
-            valveOpen = !valveOpen; if (!autoEnabled) onOverride(RelayStates(fan = fansOn, light = lightOn, waterPump = pumpOn, valve = valveOpen))
-        },
-    )
-
-    Column {
-        // Auto mode notice
-        if (autoEnabled) {
-            OutlinedCard(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(bottom = 12.dp),
-                border = BorderStroke(1.dp, MaterialTheme.colorScheme.primary.copy(alpha = 0.3f)),
-                colors = CardDefaults.cardColors(
-                    containerColor = MaterialTheme.colorScheme.primary.copy(alpha = 0.05f)
-                ),
-                shape = RoundedCornerShape(12.dp)
-            ) {
-                Row(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(12.dp),
-                    verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.spacedBy(8.dp)
-                ) {
-                    Icon(
-                        imageVector = Icons.Default.Info,
-                        contentDescription = null,
-                        tint = MaterialTheme.colorScheme.primary,
-                        modifier = Modifier.size(16.dp)
-                    )
-                    Text(
-                        text = "Controls are disabled in Auto Mode",
-                        style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.primary
-                    )
-                }
-            }
-        }
-        
-        Column {
-            // Row 1: First 2 controls
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.spacedBy(12.dp)
-            ) {
-                tiles.take(2).forEach { spec ->
-                    val border = if (!autoEnabled && spec.active) spec.accent else outline
-                    ControlTile(
-                        title = spec.title,
-                        iconRes = spec.iconRes,
-                        active = spec.active,
-                        enabled = !autoEnabled,
-                        borderColor = border,
-                        accent = spec.accent,
-                        onClick = spec.toggle,
-                        modifier = Modifier.weight(1f)
-                    )
-                }
-            }
-            
-            Spacer(Modifier.height(12.dp))
-            
-            // Row 2: Last 2 controls
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.spacedBy(12.dp)
-            ) {
-                tiles.drop(2).forEach { spec ->
-                    val border = if (!autoEnabled && spec.active) spec.accent else outline
-                    ControlTile(
-                        title = spec.title,
-                        iconRes = spec.iconRes,
-                        active = spec.active,
-                        enabled = !autoEnabled,
-                        borderColor = border,
-                        accent = spec.accent,
-                        onClick = spec.toggle,
-                        modifier = Modifier.weight(1f)
-                    )
-                }
-            }
-        }
-    }
-}
-
-@Composable
 private fun ControlTile(
     modifier: Modifier = Modifier,
     title: String,
@@ -1135,17 +1002,22 @@ private fun PerActuatorControlGrid(
 
         val enabled = !isAuto
         val isActive = tile.active && enabled
-        val border = if (isActive) tile.accent else MaterialTheme.colorScheme.outline
+        val animatedBorder by animateColorAsState(
+            targetValue = if (tile.active) tile.accent else MaterialTheme.colorScheme.outline,
+            animationSpec = tween(300)
+        )
+
         val enabledContainer = if (isActive) tile.accent.copy(alpha = 0.18f) else MaterialTheme.colorScheme.surface
         val container = if (enabled) enabledContainer else enabledContainer.copy(alpha = 0.6f)
 
         OutlinedCard(
-            modifier = modifier.height(148.dp),
+            modifier = modifier
+                .height(148.dp)
+                .clickable(enabled = enabled) { tile.onToggleValue() },
             shape = RoundedCornerShape(16.dp),
             colors = CardDefaults.cardColors(containerColor = container),
-            border = BorderStroke(1.dp, border)
+            border = BorderStroke(1.dp, animatedBorder)
         ) {
-            // ✅ Center all elements vertically, no space-between
             Column(
                 modifier = Modifier
                     .fillMaxSize()
@@ -1178,7 +1050,6 @@ private fun PerActuatorControlGrid(
                             checked = isAuto,
                             onCheckedChange = { checked ->
                                 isAuto = checked
-                                val next = if (checked) ControlMode.AUTO else ControlMode.MANUAL
                                 tile.onToggleMode()
                             },
                             modifier = Modifier.scale(0.9f),
@@ -1194,7 +1065,7 @@ private fun PerActuatorControlGrid(
 
                 Spacer(Modifier.height(8.dp))
 
-                // ✅ Centered Icon + Status
+                // Icon + Status
                 Column(
                     horizontalAlignment = Alignment.CenterHorizontally,
                     verticalArrangement = Arrangement.Center
@@ -1206,8 +1077,7 @@ private fun PerActuatorControlGrid(
                             .background(
                                 if (isActive) tile.accent.copy(alpha = 0.15f)
                                 else MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.4f)
-                            )
-                            .clickable(enabled = enabled) { tile.onToggleValue() },
+                            ),
                         contentAlignment = Alignment.Center
                     ) {
                         val tint = if (isActive) tile.accent else MaterialTheme.colorScheme.onSurface.copy(alpha = 0.7f)
