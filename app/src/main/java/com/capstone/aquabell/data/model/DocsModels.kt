@@ -105,7 +105,7 @@ object ManualContent {
             name = "Air Pump",
             summary = "Maintains oxygen levels in water.",
             purpose = """
-                Activates when DO drops below ${SensorRanges.DO_ACCEPTABLE_MIN} mg/L. 
+                Continuously runs to maintain dissolved oxygen levels above ${SensorRanges.DO_ACCEPTABLE_MIN} mg/L.   
                 Provides consistent aeration to support fish respiration and biofiltration. 
                 Keeps the water oxygen-rich for healthy tank conditions.
             """.trimIndent(),
