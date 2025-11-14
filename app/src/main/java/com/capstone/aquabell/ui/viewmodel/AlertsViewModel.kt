@@ -24,7 +24,6 @@ class AlertsViewModel(
     val unreadCount: StateFlow<Int> = _unreadCount
 
     private val existingIds: MutableSet<String> = mutableSetOf()
-
     init {
         // === Listen to stored alerts (global) ===
         viewModelScope.launch {

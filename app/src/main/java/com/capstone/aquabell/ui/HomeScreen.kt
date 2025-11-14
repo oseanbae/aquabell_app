@@ -1,5 +1,6 @@
 package com.capstone.aquabell.ui
 
+import android.annotation.SuppressLint
 import androidx.compose.animation.AnimatedContent
 import androidx.compose.animation.animateColorAsState
 import androidx.compose.animation.core.tween
@@ -110,7 +111,7 @@ fun HomeScreen(modifier: Modifier = Modifier) {
                     onSetActuatorValue = { actuator, value -> vm.setActuatorValue(actuator, value) }
                 )
                 2 ->  {
-                    val alertsVm = androidx.lifecycle.viewmodel.compose.viewModel<com.capstone.aquabell.ui.viewmodel.AlertsViewModel>()
+                    val alertsVm = viewModel<com.capstone.aquabell.ui.viewmodel.AlertsViewModel>()
                     AlertsScreen(modifier = Modifier.padding(inner), viewModel = alertsVm)
                 }
                 else -> {
@@ -282,6 +283,7 @@ private fun SectionHeader(title: String) {
     )
 }
 
+@SuppressLint("DefaultLocale")
 @Composable
 fun DashboardGrid(live: com.capstone.aquabell.data.model.LiveDataSnapshot?) {
     val outline = MaterialTheme.colorScheme.outline
@@ -692,7 +694,7 @@ private fun MetricCard(
             }
 
             AnimatedContent(
-                targetState = showTooltip,
+                targetState = true,
                 transitionSpec = {
                     (slideInVertically { fullHeight -> fullHeight / 3 } + fadeIn()) togetherWith
                     (slideOutVertically { fullHeight -> -fullHeight / 3 } + fadeOut())
@@ -822,69 +824,6 @@ private fun ControlHeader() {
         )
     }
 }
-
-@Composable
-private fun ControlTile(
-    modifier: Modifier = Modifier,
-    title: String,
-    iconRes: Int,
-    active: Boolean,
-    enabled: Boolean,
-    borderColor: Color,
-    accent: Color,
-    onClick: () -> Unit
-) {
-    val isActive = active && enabled
-    val enabledContainer = if (isActive) accent.copy(alpha = 0.18f) else MaterialTheme.colorScheme.surface
-    val container = if (enabled) enabledContainer else enabledContainer.copy(alpha = 0.6f)
-    Box(
-        modifier = modifier
-            .height(120.dp)
-    ) {
-        OutlinedCard(
-            modifier = Modifier
-                .fillMaxSize()
-                .clickable(enabled = enabled) { onClick() },
-            shape = RoundedCornerShape(16.dp),
-            colors = CardDefaults.cardColors(containerColor = container),
-            border = BorderStroke(1.dp, borderColor)
-        ) {
-            Column(
-                modifier = Modifier
-                    .fillMaxSize()
-                    .padding(12.dp),
-                verticalArrangement = Arrangement.SpaceBetween,
-                horizontalAlignment = Alignment.CenterHorizontally
-            ) {
-                Box(
-                    modifier = Modifier
-                        .size(56.dp)
-                        .clip(RoundedCornerShape(16.dp))
-                        .background(
-                            if (active) MaterialTheme.colorScheme.primary.copy(alpha = 0.15f)
-                            else MaterialTheme.colorScheme.onSurface.copy(alpha = 0.06f)
-                        ),
-                    contentAlignment = Alignment.Center
-                ) {
-                    val tint = if (isActive) accent else MaterialTheme.colorScheme.onSurface.copy(alpha = 0.75f)
-                    Icon(
-                        painter = painterResource(id = iconRes),
-                        contentDescription = null,
-                        tint = tint,
-                        modifier = Modifier.size(34.dp)
-                    )
-                }
-                val labelColor = if (isActive) accent else MaterialTheme.colorScheme.onSurface
-                Text(
-                    title,
-                    style = MaterialTheme.typography.labelLarge.copy(letterSpacing = 1.5.sp),
-                    color = labelColor
-                )
-            }
-        }
-    }
-}
-
 @Composable
 private fun PerActuatorControlGrid(
     command: com.capstone.aquabell.data.model.CommandControl,
@@ -892,7 +831,6 @@ private fun PerActuatorControlGrid(
     onSetActuatorValue: (actuator: String, value: Boolean) -> Unit,
     live: com.capstone.aquabell.data.model.LiveDataSnapshot? = null,
 ) {
-    val outline = MaterialTheme.colorScheme.outline
 
 
     // Accent colors
@@ -1169,39 +1107,43 @@ private fun BottomNavBar(selectedIndex: Int, onSelected: (Int) -> Unit) {
                 selected = selected,
                 onClick = { onSelected(index) },
                 icon = {
-                    if (pair.second == "Docs") {
-                        Icon(
-                            imageVector = Icons.Default.Info,
-                            contentDescription = pair.second,
-                            modifier = Modifier
-                                .size(if (selected) 26.dp else 24.dp)
-                                .scale(if (selected) 1.06f else 1f),
-                            tint = iconTint
-                        )
-                    } else if (pair.second == "Alerts") {
-                        val vm = androidx.lifecycle.viewmodel.compose.viewModel<com.capstone.aquabell.ui.viewmodel.AlertsViewModel>()
-                        val count = vm.unreadCount.collectAsState(initial = 0)
-                        BadgedBox(badge = {
-                            if (count.value > 0) {
-                                Badge { Text(if (count.value > 99) "99+" else count.value.toString()) }
-                            }
-                        }) {
+                    when (pair.second) {
+                        "Docs" -> {
                             Icon(
-                                painter = painterResource(id = pair.first),
+                                imageVector = Icons.Default.Info,
                                 contentDescription = pair.second,
-                                modifier = Modifier.size(if (selected) 26.dp else 24.dp),
+                                modifier = Modifier
+                                    .size(if (selected) 26.dp else 24.dp)
+                                    .scale(if (selected) 1.06f else 1f),
                                 tint = iconTint
                             )
                         }
-                    } else {
-                        Icon(
-                            painter = painterResource(id = pair.first),
-                            contentDescription = pair.second,
-                            modifier = Modifier
-                                .size(if (selected) 26.dp else 24.dp)
-                                .scale(if (selected) 1.06f else 1f),
-                            tint = iconTint
-                        )
+                        "Alerts" -> {
+                            val vm = viewModel<com.capstone.aquabell.ui.viewmodel.AlertsViewModel>()
+                            val count = vm.unreadCount.collectAsState(initial = 0)
+                            BadgedBox(badge = {
+                                if (count.value > 0) {
+                                    Badge { Text(if (count.value > 99) "99+" else count.value.toString()) }
+                                }
+                            }) {
+                                Icon(
+                                    painter = painterResource(id = pair.first),
+                                    contentDescription = pair.second,
+                                    modifier = Modifier.size(if (selected) 26.dp else 24.dp),
+                                    tint = iconTint
+                                )
+                            }
+                        }
+                        else -> {
+                            Icon(
+                                painter = painterResource(id = pair.first),
+                                contentDescription = pair.second,
+                                modifier = Modifier
+                                    .size(if (selected) 26.dp else 24.dp)
+                                    .scale(if (selected) 1.06f else 1f),
+                                tint = iconTint
+                            )
+                        }
                     }
                 },
                 label = {

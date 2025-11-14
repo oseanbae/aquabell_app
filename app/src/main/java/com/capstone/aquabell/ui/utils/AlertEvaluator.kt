@@ -35,9 +35,11 @@ object AlertEvaluator {
      *  - Caution -> Critical (escalation)
      * Applies per-sensor cooldown of 5 minutes.
      */
+
     suspend fun evaluateAlerts(
         context: Context,
-        readings: List<SensorReading>
+        readings: List<SensorReading>,
+        autoEnabled: Map<String, Boolean> = emptyMap() // sensor -> auto/manual
     ): List<AlertEntry> {
         if (readings.isEmpty()) return emptyList()
         val results = mutableListOf<AlertEntry>()
@@ -52,7 +54,7 @@ object AlertEvaluator {
 
             val transitionedToAlert = (wasNormal && (isCaution || isCritical)) || (wasCaution && isCritical)
 
-            // Update stored status regardless, to track transitions precisely next time
+            // Update stored status regardless
             setLastStatus(context, reading.sensor, nowStatus)
 
             if (!transitionedToAlert) continue
@@ -64,7 +66,11 @@ object AlertEvaluator {
 
             val type = if (isCritical) "critical" else "caution"
             val title = buildTitle(reading.sensor, reading.value)
-            val message = AlertGuidance.guidanceFor(reading.sensor, nowStatus, reading.value)
+
+            // pass autoEnabled info to guidance
+            val isAuto = autoEnabled[reading.sensor.lowercase()] ?: true
+            val message = AlertGuidance.guidanceFor(reading.sensor, nowStatus, reading.value, isAuto)
+
             val alert = AlertEntry(
                 alertId = buildAlertId(reading.sensor, reading.timestamp, type),
                 type = type,
