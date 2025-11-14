@@ -106,13 +106,55 @@ class DocsViewModel : ViewModel() {
 	data class Rule(val condition: String, val action: String)
 
 	val rules: List<Rule> = listOf(
-		Rule("Water temperature > ${SensorRanges.WATER_TEMP_CAUTION_MAX}°C", "Fish Tank Fan ON"),
-		Rule("Water temperature < ${SensorRanges.WATER_TEMP_ACCEPTABLE_MIN}°C", "Water Heater ON"),
-		Rule("Air temperature > ${SensorRanges.AIR_TEMP_CAUTION_MAX}°C", "Grow Bed Fans ON"),
-		Rule("DO < ${SensorRanges.DO_ACCEPTABLE_MIN} mg/L", "Air Pump ON"),
-		Rule("Float switch LOW", "Solenoid Valve OPEN, Water Pump OFF"),
-		Rule("Pump schedule", "15 min ON / 45 min OFF each hour"),
-		Rule("Grow lights", "ON 5:30–11:00 and 15:00–21:30"),
+		// === Water Temperature ===
+		Rule(
+			"Water temperature > ${SensorRanges.WATER_TEMP_EXCELLENT_MAX}°C",
+			"Fish Tank Cooler/Fan ON automatically"
+		),
+		Rule(
+			"Water temperature < ${SensorRanges.WATER_TEMP_EXCELLENT_MIN}°C",
+			"Water Heater ON automatically"
+		),
+
+		// === Air Temperature ===
+		Rule(
+			"Air temperature > ${SensorRanges.AIR_TEMP_EXCELLENT_MAX}°C",
+			"Grow Bed Fans ON automatically"
+		),
+		Rule(
+			"Air temperature < ${SensorRanges.AIR_TEMP_EXCELLENT_MIN}°C",
+			"Grow Bed Fans OFF / monitor for cold stress"
+		),
+
+		// === Dissolved Oxygen ===
+		Rule(
+			"DO < ${SensorRanges.DO_ACCEPTABLE_MIN} mg/L",
+			"Air Pump / Aeration ON automatically"
+		),
+
+		// === Float Switch / Water Level ===
+		Rule(
+			"Water level LOW (Float switch triggered)",
+			"Solenoid Valve OPEN, Water Pump OFF automatically"
+		),
+
+		// === pH dosing (auto-managed) ===
+		Rule(
+			"pH < ${SensorRanges.PH_ACCEPTABLE_MIN} or pH > ${SensorRanges.PH_ACCEPTABLE_MAX}",
+			"Auto dosing system adjusts up/down"
+		),
+
+		// === Pump Schedule ===
+		Rule(
+			"Pump schedule",
+			"Water Pump cycles: 15 min ON / 45 min OFF each hour automatically"
+		),
+
+		// === Grow Lights Schedule ===
+		Rule(
+			"Grow lights schedule",
+			"Lights ON 5:30–11:00 and 15:00–21:30 automatically"
+		)
 	)
 }
 

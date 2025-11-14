@@ -6,11 +6,10 @@ object ManualContent {
     val microcontroller = listOf(
         HardwareComponent(
             name = "ESP32 (30-pin)",
-            summary = "Acts as the system’s main controller — reads sensors, executes automation logic, and communicates with the mobile app through Firebase.",
+            summary = "Main controller — reads sensors, runs automation rules, and communicates with the mobile app.",
             purpose = """
-                The ESP32 is the central brain of the AquaBell system. It reads all sensor data, executes the automation rules, and controls actuators based on defined thresholds. 
-                It also communicates with the mobile app via Firebase for real-time monitoring and manual control. 
-                Without the ESP32, the system wouldn’t be able to automate responses or synchronize data to the cloud.
+                Central brain of the AquaBell system. Reads all sensor data, executes automation rules, and controls actuators. 
+                Syncs with the mobile app via Firebase for real-time monitoring and manual override.
             """.trimIndent(),
             imagePath = "drawable/esp32.png"
         )
@@ -20,62 +19,61 @@ object ManualContent {
     val sensors = listOf(
         HardwareComponent(
             name = "DHT11",
-            summary = "Monitors air temperature and humidity around the grow bed. Automatically triggers fans when air gets too hot or humid.",
+            summary = "Monitors air temperature and humidity in the grow bed.",
             purpose = """
-                Measures air temperature and humidity in the grow bed and surrounding environment. 
-                The system uses this data to control DC fans for evaporative cooling and maintain a healthy climate for plants and fish. 
-                Proper humidity prevents algae growth, while temperature stability ensures optimal photosynthesis.
-                RULE: Fan ON if air temperature > ${SensorRanges.AIR_TEMP_CAUTION_MAX}°C.
+                Measures air temperature and humidity to maintain a healthy environment for plants and fish. 
+                Grow bed fans are triggered if air temperature exceeds ${SensorRanges.AIR_TEMP_CAUTION_MAX}°C. 
+                Proper humidity and temperature prevent mold, algae, and plant stress.
             """.trimIndent(),
             imagePath = "drawable/sensor_dht11.png"
         ),
         HardwareComponent(
             name = "DS18B20",
-            summary = "Tracks fish tank water temperature to control the heater and cooling fans, maintaining ideal thermal balance.",
+            summary = "Tracks fish tank water temperature.",
             purpose = """
-                Measures water temperature in the fish tank. 
-                Water temperature stability is critical for fish like tilapia, which thrive between ${SensorRanges.WATER_TEMP_EXCELLENT_MIN}°C and ${SensorRanges.WATER_TEMP_EXCELLENT_MAX}°C. 
-                When water gets too cold, the heater activates; when too hot, cooling fans engage.
+                Monitors water temperature to maintain optimal conditions for fish. 
+                Water heater activates below ${SensorRanges.WATER_TEMP_ACCEPTABLE_MIN}°C, and fans engage above ${SensorRanges.WATER_TEMP_CAUTION_MAX}°C. 
+                Stable temperatures prevent stress and promote healthy growth.
             """.trimIndent(),
             imagePath = "drawable/sensor_water_temp.png"
         ),
         HardwareComponent(
-            name = "Dissolve Oxygen Sensor",
-            summary = "Monitors dissolved oxygen in the water to keep fish healthy. Triggers aeration when oxygen drops too low.",
+            name = "Dissolved Oxygen Sensor",
+            summary = "Monitors oxygen levels in the tank.",
             purpose = """
-                Measures Dissolved Oxygen (DO) levels in the water. 
-                When DO drops below ${SensorRanges.DO_ACCEPTABLE_MIN} mg/L, the air pump is activated to improve oxygen circulation and prevent fish stress. 
-                High oxygen levels also promote healthy bacteria and water quality.
+                Measures dissolved oxygen to ensure fish and beneficial bacteria are healthy. 
+                Air pump activates if DO falls below ${SensorRanges.DO_ACCEPTABLE_MIN} mg/L. 
+                Maintaining oxygen levels prevents fish stress and supports biofiltration.
             """.trimIndent(),
             imagePath = "drawable/sensor_do.png"
         ),
         HardwareComponent(
             name = "pH Sensor",
-            summary = "Checks acidity and alkalinity of the fish tank water. Alerts users if readings fall outside the safe range.",
+            summary = "Checks acidity and alkalinity of tank water.",
             purpose = """
-                Monitors the pH level of the water to ensure it stays within ${SensorRanges.PH_ACCEPTABLE_MIN}–${SensorRanges.PH_ACCEPTABLE_MAX}. 
-                Stable pH supports nutrient absorption and prevents fish stress. 
-                Alerts are triggered when readings reach caution or critical zones.
+                Monitors pH to keep water within ${SensorRanges.PH_ACCEPTABLE_MIN}–${SensorRanges.PH_ACCEPTABLE_MAX}. 
+                When pH goes outside safe limits, the system triggers the pH dosing pump to correct it. 
+                Stable pH ensures nutrient absorption and fish comfort.
             """.trimIndent(),
             imagePath = "drawable/sensor_ph.png"
         ),
         HardwareComponent(
             name = "Turbidity Sensor",
-            summary = "Monitors water clarity in the sump tank after filtration to assess filtration efficiency and water quality.",
+            summary = "Monitors water clarity after filtration.",
             purpose = """
-                Measures the turbidity (cloudiness) of the water in the sump tank after it passes through the filtration system. 
-                High turbidity indicates poor filtration or dirty water, triggering an alert for maintenance or filter cleaning. 
-                The sensor helps ensure clear and healthy water circulation within the aquaponics system.
+                Measures cloudiness to detect filtration issues or dirty water. 
+                Alerts the user when turbidity exceeds safe levels. 
+                This ensures water remains clear and healthy for fish and plants.
             """.trimIndent(),
             imagePath = "drawable/sensor_turbidity.png"
         ),
         HardwareComponent(
             name = "Float Switch",
-            summary = "Detects low water level in the fish tank and triggers automatic refill via solenoid valve.",
+            summary = "Detects low water levels in the fish tank.",
             purpose = """
-                Detects the water level in the fish tank. When it drops below the threshold, the solenoid valve opens to refill. 
-                The system also pauses the pump during refill to prevent dry running. 
-                Once normal level is restored, the valve closes automatically.
+                Triggers the solenoid valve to refill the tank when water drops too low. 
+                Pauses the water pump during refill to prevent dry running. 
+                Closes the valve automatically once normal water level is restored.
             """.trimIndent(),
             imagePath = "drawable/sensor_float_switch.png"
         )
@@ -85,72 +83,71 @@ object ManualContent {
     val actuators = listOf(
         HardwareComponent(
             name = "DC Fans (Grow Bed & Fish Tank)",
-            summary = "Provide air circulation and cooling. Triggered when air or water temperature exceeds caution levels.",
+            summary = "Provide air circulation and cooling.",
             purpose = """
-                DC fans handle air movement and evaporative cooling. 
-                Grow bed fans lower humidity to prevent algae and mold, while fish tank fans cool water when it exceeds ${SensorRanges.WATER_TEMP_CAUTION_MAX}°C. 
-                RULE: Fans ON if air or water temperature > caution threshold.
+                Grow bed fans lower humidity while fish tank fans cool water above ${SensorRanges.WATER_TEMP_CAUTION_MAX}°C. 
+                They activate automatically based on temperature thresholds. 
+                Fans help maintain a stable environment for both fish and plants.
             """.trimIndent(),
             imagePath = "drawable/actuator_fans.png"
         ),
         HardwareComponent(
             name = "Water Pump",
-            summary = "Circulates water between fish tank and grow bed on an automated 15/45 schedule to sustain nutrient flow.",
+            summary = "Circulates water between fish tank and grow bed on a schedule.",
             purpose = """
-                The water pump drives nutrient exchange between the fish tank and grow bed. 
-                Operates on a 15-minute ON / 45-minute OFF cycle for efficiency, ensuring plants receive nutrients without overwatering. 
-                RULE: Timed operation every hour.
+                Operates on a 15-minute ON / 45-minute OFF cycle to supply nutrients without overwatering. 
+                Ensures efficient nutrient flow between fish tank and plants. 
+                Automatic scheduling reduces the need for manual intervention.
             """.trimIndent(),
             imagePath = "drawable/actuator_water_pump.png"
         ),
         HardwareComponent(
             name = "Air Pump",
-            summary = "Provides constant aeration to maintain oxygen-rich water for fish and bacteria.",
+            summary = "Maintains oxygen levels in water.",
             purpose = """
-                Continuously runs to maintain dissolved oxygen levels above ${SensorRanges.DO_ACCEPTABLE_MIN} mg/L. 
-                It supports fish respiration and beneficial bacteria for biofiltration. 
-                RULE: Always ON for constant aeration.
+                Activates when DO drops below ${SensorRanges.DO_ACCEPTABLE_MIN} mg/L. 
+                Provides consistent aeration to support fish respiration and biofiltration. 
+                Keeps the water oxygen-rich for healthy tank conditions.
             """.trimIndent(),
             imagePath = "drawable/actuator_air_pump.png"
         ),
         HardwareComponent(
             name = "Solenoid Valve",
-            summary = "Automatically refills the fish tank when water drops below float switch level.",
+            summary = "Refills fish tank automatically when water is low.",
             purpose = """
-                Opens when float switch detects low water. Closes automatically once level returns to normal. 
-                The water pump is disabled during refill to prevent dry run. 
-                RULE: Valve ON if float switch = LOW.
+                Opens when the float switch detects low water and closes once normal level is restored. 
+                Pauses the water pump during refill to prevent dry running. 
+                Ensures water supply is maintained without manual monitoring.
             """.trimIndent(),
             imagePath = "drawable/actuator_valve.png"
         ),
         HardwareComponent(
             name = "Grow Lights",
-            summary = "Provide controlled lighting for plant growth using a daily schedule.",
+            summary = "Provide scheduled lighting for plant growth.",
             purpose = """
-                Simulates natural sunlight for the plants. 
-                Operates from 5:30–11:00 AM and 3:00–9:30 PM to support photosynthesis. 
-                RULE: Scheduled ON/OFF periods for consistent light exposure.
+                Simulates sunlight on a 5:30–11:00 AM and 3:00–9:30 PM schedule. 
+                Supports photosynthesis and consistent plant growth. 
+                Automatically manages lighting without manual control.
             """.trimIndent(),
             imagePath = "drawable/actuator_grow_light.png"
         ),
         HardwareComponent(
             name = "Water Heater",
-            summary = "Heats the fish tank water when temperature drops below ${SensorRanges.WATER_TEMP_ACCEPTABLE_MIN}°C.",
+            summary = "Heats fish tank water when temperature is low.",
             purpose = """
-                Activates when water temperature is below optimal range to maintain fish comfort and growth. 
-                RULE: Heater ON if water temp < ${SensorRanges.WATER_TEMP_ACCEPTABLE_MIN}°C; OFF when above ${SensorRanges.WATER_TEMP_EXCELLENT_MIN}°C.
+                Activates if water temperature falls below ${SensorRanges.WATER_TEMP_ACCEPTABLE_MIN}°C and deactivates above ${SensorRanges.WATER_TEMP_EXCELLENT_MIN}°C. 
+                Maintains optimal thermal conditions for fish health. 
+                Helps prevent stress caused by cold water.
             """.trimIndent(),
             imagePath = "drawable/actuator_water_heater.png"
         ),
         HardwareComponent(
             name = "pH Dosing Pump",
-            summary = "Automatically corrects water pH by dispensing acid or base in controlled pulses through a diaphragm pump.",
+            summary = "Adjusts water pH automatically.",
             purpose = """
-                This component maintains stable pH levels in the aquaponics system. 
-                When the pH drops below the safe range, the system triggers short bursts of the pH UP solution; 
-                when it rises too high, it doses a pH DOWN solution instead. 
-                Each dosing cycle is divided into multiple timed pulses with rest periods between cycles to prevent overcorrection and chemical shock.
-                The diaphragm pump provides precise micro-dosing, ensuring gradual pH correction while keeping the fish and plants safe.
+                Dispenses acid or base in pulses when pH exceeds safe range. 
+                Maintains stable pH to prevent stress on fish and plants. 
+                Operates gradually to avoid sudden chemical changes.
             """.trimIndent(),
             imagePath = "drawable/actuator_ph_pump.png"
         )
