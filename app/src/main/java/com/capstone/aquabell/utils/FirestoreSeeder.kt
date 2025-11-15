@@ -7,6 +7,9 @@ import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.tasks.await
+import java.text.SimpleDateFormat
+import java.util.Calendar
+import java.util.Locale
 import kotlin.random.Random
 
 // TODO: Remove FirestoreSeeder before production
@@ -23,12 +26,12 @@ object FirestoreSeeder {
     fun seedDailyLogs(db: FirebaseFirestore = FirebaseFirestore.getInstance(), days: Int = 6) {
         CoroutineScope(Dispatchers.IO).launch {
             try {
-                val now = java.util.Calendar.getInstance()
-                val fmt = java.text.SimpleDateFormat("yyyy-MM-dd", java.util.Locale.getDefault())
+                val now = Calendar.getInstance()
+                val fmt = SimpleDateFormat("yyyy-MM-dd", Locale.getDefault())
 
                 repeat(days) { i ->
-                    val cal = now.clone() as java.util.Calendar
-                    cal.add(java.util.Calendar.DAY_OF_YEAR, -(days - 1 - i))
+                    val cal = now.clone() as Calendar
+                    cal.add(Calendar.DAY_OF_YEAR, -(days - 1 - i))
                     val dateStr = fmt.format(cal.time)
 
                     val payload = mapOf(
@@ -45,7 +48,7 @@ object FirestoreSeeder {
                         "avgAirTemp" to randomInRange(24.0, 30.0),
                         // Air Humidity: 50–70%
                         "avgAirHumidity" to randomInRange(50.0, 80.0),
-                        "timestamp" to Timestamp.now()
+                        "timestamp" to Timestamp.Companion.now()
                     )
 
                     try {
@@ -62,8 +65,6 @@ object FirestoreSeeder {
     }
 
     private fun randomInRange(min: Double, max: Double): Double {
-        return Random.nextDouble(min, max)
+        return Random.Default.nextDouble(min, max)
     }
 }
-
-

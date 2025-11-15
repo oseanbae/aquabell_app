@@ -1,4 +1,4 @@
-package com.capstone.aquabell.ui
+package com.capstone.aquabell.ui.screens
 
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.core.animateFloatAsState
@@ -24,7 +24,6 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.rotate
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
@@ -515,78 +514,78 @@ private fun calculateSensorStatus(parameter: String, value: Double): com.capston
         "pH" -> calculatePHStatus(value)
         "Dissolved Oxygen" -> calculateDOStatus(value)
         "Turbidity" -> calculateTurbidityStatus(value)
-        else -> com.capstone.aquabell.data.model.SensorStatus("Unknown", Color.Gray, 0.5f)
+        else -> SensorStatus("Unknown", Color.Gray, 0.5f)
     }
 }
 
 private fun calculateAirTempStatus(value: Double): com.capstone.aquabell.data.model.SensorStatus {
     return when {
-        value in SensorRanges.AIR_TEMP_EXCELLENT_MIN..SensorRanges.AIR_TEMP_EXCELLENT_MAX -> 
-            com.capstone.aquabell.data.model.SensorStatus("Excellent", Color(0xFF4CAF50), 0.8f)
-        value in SensorRanges.AIR_TEMP_ACCEPTABLE_MIN..SensorRanges.AIR_TEMP_ACCEPTABLE_MAX -> 
-            com.capstone.aquabell.data.model.SensorStatus("Good", Color(0xFF2196F3), 0.6f)
-        value in SensorRanges.AIR_TEMP_CAUTION_MIN..SensorRanges.AIR_TEMP_CAUTION_MAX -> 
-            com.capstone.aquabell.data.model.SensorStatus("Caution", Color(0xFFFF9800), 0.4f)
-        else -> com.capstone.aquabell.data.model.SensorStatus("Critical", Color(0xFFF44336), 0.2f)
+        value in SensorRanges.AIR_TEMP_EXCELLENT_MIN..SensorRanges.AIR_TEMP_EXCELLENT_MAX ->
+            SensorStatus("Excellent", Color(0xFF4CAF50), 0.8f)
+        value in SensorRanges.AIR_TEMP_ACCEPTABLE_MIN..SensorRanges.AIR_TEMP_ACCEPTABLE_MAX ->
+            SensorStatus("Good", Color(0xFF2196F3), 0.6f)
+        value in SensorRanges.AIR_TEMP_CAUTION_MIN..SensorRanges.AIR_TEMP_CAUTION_MAX ->
+            SensorStatus("Caution", Color(0xFFFF9800), 0.4f)
+        else -> SensorStatus("Critical", Color(0xFFF44336), 0.2f)
     }
 }
 
 private fun calculateHumidityStatus(value: Double): com.capstone.aquabell.data.model.SensorStatus {
     return when {
-        value in SensorRanges.HUMIDITY_EXCELLENT_MIN..SensorRanges.HUMIDITY_EXCELLENT_MAX -> 
-            com.capstone.aquabell.data.model.SensorStatus("Excellent", Color(0xFF4CAF50), 0.8f)
-        value in SensorRanges.HUMIDITY_ACCEPTABLE_MIN..SensorRanges.HUMIDITY_ACCEPTABLE_MAX -> 
-            com.capstone.aquabell.data.model.SensorStatus("Good", Color(0xFF2196F3), 0.6f)
-        value in SensorRanges.HUMIDITY_CAUTION_MIN..SensorRanges.HUMIDITY_CAUTION_MAX -> 
-            com.capstone.aquabell.data.model.SensorStatus("Caution", Color(0xFFFF9800), 0.4f)
-        else -> com.capstone.aquabell.data.model.SensorStatus("Critical", Color(0xFFF44336), 0.2f)
+        value in SensorRanges.HUMIDITY_EXCELLENT_MIN..SensorRanges.HUMIDITY_EXCELLENT_MAX ->
+            SensorStatus("Excellent", Color(0xFF4CAF50), 0.8f)
+        value in SensorRanges.HUMIDITY_ACCEPTABLE_MIN..SensorRanges.HUMIDITY_ACCEPTABLE_MAX ->
+            SensorStatus("Good", Color(0xFF2196F3), 0.6f)
+        value in SensorRanges.HUMIDITY_CAUTION_MIN..SensorRanges.HUMIDITY_CAUTION_MAX ->
+            SensorStatus("Caution", Color(0xFFFF9800), 0.4f)
+        else -> SensorStatus("Critical", Color(0xFFF44336), 0.2f)
     }
 }
 
 private fun calculateWaterTempStatus(value: Double): com.capstone.aquabell.data.model.SensorStatus {
     return when {
-        value in SensorRanges.WATER_TEMP_EXCELLENT_MIN..SensorRanges.WATER_TEMP_EXCELLENT_MAX -> 
-            com.capstone.aquabell.data.model.SensorStatus("Excellent", Color(0xFF4CAF50), 0.8f)
-        value in SensorRanges.WATER_TEMP_ACCEPTABLE_MIN..SensorRanges.WATER_TEMP_ACCEPTABLE_MAX -> 
-            com.capstone.aquabell.data.model.SensorStatus("Good", Color(0xFF2196F3), 0.6f)
-        value in SensorRanges.WATER_TEMP_CAUTION_MIN..SensorRanges.WATER_TEMP_CAUTION_MAX -> 
-            com.capstone.aquabell.data.model.SensorStatus("Caution", Color(0xFFFF9800), 0.4f)
-        else -> com.capstone.aquabell.data.model.SensorStatus("Critical", Color(0xFFF44336), 0.2f)
+        value in SensorRanges.WATER_TEMP_EXCELLENT_MIN..SensorRanges.WATER_TEMP_EXCELLENT_MAX ->
+            SensorStatus("Excellent", Color(0xFF4CAF50), 0.8f)
+        value in SensorRanges.WATER_TEMP_ACCEPTABLE_MIN..SensorRanges.WATER_TEMP_ACCEPTABLE_MAX ->
+            SensorStatus("Good", Color(0xFF2196F3), 0.6f)
+        value in SensorRanges.WATER_TEMP_CAUTION_MIN..SensorRanges.WATER_TEMP_CAUTION_MAX ->
+            SensorStatus("Caution", Color(0xFFFF9800), 0.4f)
+        else -> SensorStatus("Critical", Color(0xFFF44336), 0.2f)
     }
 }
 
 private fun calculatePHStatus(value: Double): com.capstone.aquabell.data.model.SensorStatus {
     return when {
-        value in SensorRanges.PH_EXCELLENT_MIN..SensorRanges.PH_EXCELLENT_MAX -> 
-            com.capstone.aquabell.data.model.SensorStatus("Excellent", Color(0xFF4CAF50), 0.8f)
-        value in SensorRanges.PH_ACCEPTABLE_MIN..SensorRanges.PH_ACCEPTABLE_MAX -> 
-            com.capstone.aquabell.data.model.SensorStatus("Good", Color(0xFF2196F3), 0.6f)
-        value in SensorRanges.PH_CAUTION_MIN..SensorRanges.PH_CAUTION_MAX -> 
-            com.capstone.aquabell.data.model.SensorStatus("Caution", Color(0xFFFF9800), 0.4f)
-        else -> com.capstone.aquabell.data.model.SensorStatus("Critical", Color(0xFFF44336), 0.2f)
+        value in SensorRanges.PH_EXCELLENT_MIN..SensorRanges.PH_EXCELLENT_MAX ->
+            SensorStatus("Excellent", Color(0xFF4CAF50), 0.8f)
+        value in SensorRanges.PH_ACCEPTABLE_MIN..SensorRanges.PH_ACCEPTABLE_MAX ->
+            SensorStatus("Good", Color(0xFF2196F3), 0.6f)
+        value in SensorRanges.PH_CAUTION_MIN..SensorRanges.PH_CAUTION_MAX ->
+            SensorStatus("Caution", Color(0xFFFF9800), 0.4f)
+        else -> SensorStatus("Critical", Color(0xFFF44336), 0.2f)
     }
 }
 
 private fun calculateDOStatus(value: Double): com.capstone.aquabell.data.model.SensorStatus {
     return when {
-        value >= SensorRanges.DO_EXCELLENT_MIN -> 
-            com.capstone.aquabell.data.model.SensorStatus("Excellent", Color(0xFF4CAF50), 0.8f)
-        value >= SensorRanges.DO_ACCEPTABLE_MIN -> 
-            com.capstone.aquabell.data.model.SensorStatus("Good", Color(0xFF2196F3), 0.6f)
-        value >= SensorRanges.DO_CAUTION_MIN -> 
-            com.capstone.aquabell.data.model.SensorStatus("Caution", Color(0xFFFF9800), 0.4f)
-        else -> com.capstone.aquabell.data.model.SensorStatus("Critical", Color(0xFFF44336), 0.2f)
+        value >= SensorRanges.DO_EXCELLENT_MIN ->
+            SensorStatus("Excellent", Color(0xFF4CAF50), 0.8f)
+        value >= SensorRanges.DO_ACCEPTABLE_MIN ->
+            SensorStatus("Good", Color(0xFF2196F3), 0.6f)
+        value >= SensorRanges.DO_CAUTION_MIN ->
+            SensorStatus("Caution", Color(0xFFFF9800), 0.4f)
+        else -> SensorStatus("Critical", Color(0xFFF44336), 0.2f)
     }
 }
 
 private fun calculateTurbidityStatus(value: Double): com.capstone.aquabell.data.model.SensorStatus {
     return when {
-        value <= SensorRanges.TURBIDITY_EXCELLENT_MAX -> 
-            com.capstone.aquabell.data.model.SensorStatus("Excellent", Color(0xFF4CAF50), 0.8f)
-        value <= SensorRanges.TURBIDITY_ACCEPTABLE_MAX -> 
-            com.capstone.aquabell.data.model.SensorStatus("Good", Color(0xFF2196F3), 0.6f)
-        value <= SensorRanges.TURBIDITY_CAUTION_MAX -> 
-            com.capstone.aquabell.data.model.SensorStatus("Caution", Color(0xFFFF9800), 0.4f)
-        else -> com.capstone.aquabell.data.model.SensorStatus("Critical", Color(0xFFF44336), 0.2f)
+        value <= SensorRanges.TURBIDITY_EXCELLENT_MAX ->
+            SensorStatus("Excellent", Color(0xFF4CAF50), 0.8f)
+        value <= SensorRanges.TURBIDITY_ACCEPTABLE_MAX ->
+            SensorStatus("Good", Color(0xFF2196F3), 0.6f)
+        value <= SensorRanges.TURBIDITY_CAUTION_MAX ->
+            SensorStatus("Caution", Color(0xFFFF9800), 0.4f)
+        else -> SensorStatus("Critical", Color(0xFFF44336), 0.2f)
     }
 }

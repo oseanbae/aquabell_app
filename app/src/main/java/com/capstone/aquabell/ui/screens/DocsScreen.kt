@@ -1,4 +1,4 @@
-package com.capstone.aquabell.ui
+package com.capstone.aquabell.ui.screens
 
 import android.content.Context
 import androidx.compose.animation.AnimatedVisibility

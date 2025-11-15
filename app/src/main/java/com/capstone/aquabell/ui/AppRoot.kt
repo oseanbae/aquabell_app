@@ -1,15 +1,15 @@
 package com.capstone.aquabell.ui
 
-import androidx.compose.material3.*
+import android.os.Build
+import androidx.annotation.RequiresApi
 import androidx.compose.runtime.*
 import androidx.compose.ui.Modifier
-import androidx.compose.foundation.layout.*
-import androidx.compose.ui.Alignment
-import androidx.compose.ui.unit.dp
 import com.capstone.aquabell.auth.AuthGate
 import com.capstone.aquabell.data.FirebaseRepository
+import com.capstone.aquabell.ui.screens.HomeScreen
 import kotlinx.coroutines.flow.collectLatest
 
+@RequiresApi(Build.VERSION_CODES.N)
 @Composable
 fun AppRoot(modifier: Modifier = Modifier) {
     val repo = remember { FirebaseRepository() }

@@ -1,10 +1,11 @@
-package com.capstone.aquabell.ui
+package com.capstone.aquabell.ui.screens
 
 import android.text.format.DateUtils
 import androidx.compose.animation.core.FastOutSlowInEasing
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.tween
 import androidx.compose.animation.animateColorAsState
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -47,10 +48,16 @@ import com.capstone.aquabell.data.model.AlertEntry
 import com.capstone.aquabell.ui.viewmodel.AlertsViewModel
 import kotlinx.coroutines.flow.StateFlow
 import androidx.compose.foundation.ExperimentalFoundationApi
+import androidx.compose.material3.Icon
+import androidx.compose.material3.OutlinedButton
 import kotlin.math.roundToInt
 import androidx.compose.material3.SwipeToDismissBox
+import androidx.compose.material3.SwipeToDismissBoxState
 import androidx.compose.material3.SwipeToDismissBoxValue
 import androidx.compose.material3.rememberSwipeToDismissBoxState
+import androidx.compose.runtime.State
+import java.util.Calendar
+import kotlin.math.sin
 
 @OptIn(ExperimentalFoundationApi::class)
 @Composable
@@ -91,7 +98,7 @@ fun AlertsScreen(
                 horizontalArrangement = Arrangement.spacedBy(8.dp),
                 verticalAlignment = Alignment.CenterVertically
             ) {
-                androidx.compose.material3.OutlinedButton(
+                OutlinedButton(
                     onClick = { sortDescending = !sortDescending },
                     modifier = Modifier.height(36.dp)
                 ) {
@@ -102,7 +109,7 @@ fun AlertsScreen(
                 }
 
                 val hasResolved = alerts.value.any { it.acknowledged }
-                androidx.compose.material3.OutlinedButton(
+                OutlinedButton(
                     onClick = { viewModel.clearResolvedAlerts() },
                     enabled = hasResolved,
                     modifier = Modifier.height(36.dp)
@@ -178,7 +185,7 @@ fun SwipeableAlertRow(
 }
 
 @Composable
-private fun SwipeBackground(state: androidx.compose.material3.SwipeToDismissBoxState) {
+private fun SwipeBackground(state: SwipeToDismissBoxState) {
     val target = state.targetValue
     val bgTarget = when (target) {
         SwipeToDismissBoxValue.EndToStart -> MaterialTheme.colorScheme.primaryContainer
@@ -199,13 +206,13 @@ private fun SwipeBackground(state: androidx.compose.material3.SwipeToDismissBoxS
             verticalAlignment = Alignment.CenterVertically
         ) {
             if (target == SwipeToDismissBoxValue.EndToStart) {
-                androidx.compose.material3.Icon(
+                Icon(
                     imageVector = Icons.Default.Check,
                     contentDescription = null,
                     tint = MaterialTheme.colorScheme.onPrimaryContainer
                 )
             } else if (target == SwipeToDismissBoxValue.StartToEnd) {
-                androidx.compose.material3.Icon(
+                Icon(
                     imageVector = Icons.Default.Delete,
                     contentDescription = null,
                     tint = MaterialTheme.colorScheme.onErrorContainer
@@ -242,10 +249,10 @@ private fun AlertCard(alert: AlertEntry, outline: Color) {
     OutlinedCard(
         modifier = Modifier
             .fillMaxWidth()
-            .offset { IntOffset((offsetX * kotlin.math.sin(System.currentTimeMillis().toFloat())).roundToInt(), 0) },
+            .offset { IntOffset((offsetX * sin(System.currentTimeMillis().toFloat())).roundToInt(), 0) },
         shape = RoundedCornerShape(16.dp),
         colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
-        border = androidx.compose.foundation.BorderStroke(
+        border = BorderStroke(
             1.dp,
             if (isAck) AccentSuccess else when (alert.type.lowercase()) {
                 "critical" -> AccentDanger
@@ -299,20 +306,20 @@ private fun AlertCard(alert: AlertEntry, outline: Color) {
 // value formatting now handled when creating alert.title in AlertEvaluator
 
 @Composable
-private fun <T> StateFlow<T>.collectAsStateWithLifecycleCompat(initial: T): androidx.compose.runtime.State<T> {
+private fun <T> StateFlow<T>.collectAsStateWithLifecycleCompat(initial: T): State<T> {
     return this.collectAsState(initial)
 }
 
 private fun groupByDay(alerts: List<AlertEntry>): Map<String, List<AlertEntry>> {
     if (alerts.isEmpty()) return emptyMap()
-    val now = java.util.Calendar.getInstance()
-    val today = now.clone() as java.util.Calendar
-    val yesterday = (now.clone() as java.util.Calendar).apply { add(java.util.Calendar.DAY_OF_YEAR, -1) }
+    val now = Calendar.getInstance()
+    val today = now.clone() as Calendar
+    val yesterday = (now.clone() as Calendar).apply { add(Calendar.DAY_OF_YEAR, -1) }
 
-    fun isSameDay(ts: Long, cal: java.util.Calendar): Boolean {
-        val c = java.util.Calendar.getInstance().apply { timeInMillis = ts }
-        return c.get(java.util.Calendar.YEAR) == cal.get(java.util.Calendar.YEAR) &&
-            c.get(java.util.Calendar.DAY_OF_YEAR) == cal.get(java.util.Calendar.DAY_OF_YEAR)
+    fun isSameDay(ts: Long, cal: Calendar): Boolean {
+        val c = Calendar.getInstance().apply { timeInMillis = ts }
+        return c.get(Calendar.YEAR) == cal.get(Calendar.YEAR) &&
+            c.get(Calendar.DAY_OF_YEAR) == cal.get(Calendar.DAY_OF_YEAR)
     }
 
     val (todayList, other1) = alerts.partition { isSameDay(it.timestamp, today) }

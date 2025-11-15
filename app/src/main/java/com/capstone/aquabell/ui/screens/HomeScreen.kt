@@ -1,6 +1,7 @@
-package com.capstone.aquabell.ui
+package com.capstone.aquabell.ui.screens
 
 import android.annotation.SuppressLint
+import android.util.Log
 import androidx.compose.animation.AnimatedContent
 import androidx.compose.animation.animateColorAsState
 import androidx.compose.animation.core.tween
@@ -69,11 +70,15 @@ import androidx.compose.ui.unit.sp
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.capstone.aquabell.R
 import com.capstone.aquabell.data.FirebaseRepository
+import com.capstone.aquabell.data.model.CommandControl
 import com.capstone.aquabell.data.model.ControlMode
+import com.capstone.aquabell.data.model.LiveDataSnapshot
 import com.capstone.aquabell.data.model.RelayStates
 import com.capstone.aquabell.data.model.SensorRanges
 import com.capstone.aquabell.ui.theme.AquabellTheme
+import com.capstone.aquabell.ui.viewmodel.AlertsViewModel
 import com.capstone.aquabell.ui.viewmodel.HomeViewModel
+import kotlinx.coroutines.delay
 
 @Composable
 fun HomeScreen(modifier: Modifier = Modifier) {
@@ -111,7 +116,7 @@ fun HomeScreen(modifier: Modifier = Modifier) {
                     onSetActuatorValue = { actuator, value -> vm.setActuatorValue(actuator, value) }
                 )
                 2 ->  {
-                    val alertsVm = viewModel<com.capstone.aquabell.ui.viewmodel.AlertsViewModel>()
+                    val alertsVm = viewModel<AlertsViewModel>()
                     AlertsScreen(modifier = Modifier.padding(inner), viewModel = alertsVm)
                 }
                 else -> {
@@ -125,8 +130,8 @@ fun HomeScreen(modifier: Modifier = Modifier) {
 @Composable
 private fun HomeContent(
     modifier: Modifier = Modifier,
-    live: com.capstone.aquabell.data.model.LiveDataSnapshot?,
-    command: com.capstone.aquabell.data.model.CommandControl,
+    live: LiveDataSnapshot?,
+    command: CommandControl,
     commandLoaded: Boolean,
     connectionState: FirebaseRepository.ConnectionState,
     isRefreshing: Boolean,
@@ -160,7 +165,7 @@ private fun HomeContent(
         } else {
             // Log the command state when rendering the control panel
             LaunchedEffect(command) {
-                android.util.Log.d(
+                Log.d(
                     "HomeScreen",
                     "Rendering control panel with states: fan=${command.fan.mode}/${command.fan.value}, light=${command.light.mode}/${command.light.value}, pump=${command.pump.mode}/${command.pump.value}, valve=${command.valve.mode}/${command.valve.value}, cooler=${command.cooler.mode}/${command.cooler.value}, heater=${command.heater.mode}/${command.heater.value}"
                 )
@@ -285,7 +290,7 @@ private fun SectionHeader(title: String) {
 
 @SuppressLint("DefaultLocale")
 @Composable
-fun DashboardGrid(live: com.capstone.aquabell.data.model.LiveDataSnapshot?) {
+fun DashboardGrid(live: LiveDataSnapshot?) {
     val outline = MaterialTheme.colorScheme.outline
     data class MetricData(val title: String, val value: String, val iconRes: Int, val status: String, val statusColor: Color)
     
@@ -445,7 +450,7 @@ fun DashboardGrid(live: com.capstone.aquabell.data.model.LiveDataSnapshot?) {
 }
 
 @Composable
-private fun WaterLevelModule(live: com.capstone.aquabell.data.model.LiveDataSnapshot?) {
+private fun WaterLevelModule(live: LiveDataSnapshot?) {
     val outline = MaterialTheme.colorScheme.outline
     val isLowWater = live?.floatTriggered == true
     
@@ -544,7 +549,7 @@ private fun MetricCard(
     // Auto-hide tooltip after 3 seconds
     LaunchedEffect(showTooltip) {
         if (showTooltip) {
-            kotlinx.coroutines.delay(3000)
+            delay(3000)
             showTooltip = false
         }
     }
@@ -631,7 +636,7 @@ private fun MetricCard(
                     // Nudge elevation briefly on update
                     LaunchedEffect(animatedValue) {
                         // pulse elevation
-                        kotlinx.coroutines.delay(250)
+                        delay(250)
                     }
                     Text(
                         text = animatedValue,
@@ -826,10 +831,10 @@ private fun ControlHeader() {
 }
 @Composable
 private fun PerActuatorControlGrid(
-    command: com.capstone.aquabell.data.model.CommandControl,
+    command: CommandControl,
     onSetActuatorMode: (actuator: String, mode: ControlMode) -> Unit,
     onSetActuatorValue: (actuator: String, value: Boolean) -> Unit,
-    live: com.capstone.aquabell.data.model.LiveDataSnapshot? = null,
+    live: LiveDataSnapshot? = null,
 ) {
 
 
@@ -1119,7 +1124,7 @@ private fun BottomNavBar(selectedIndex: Int, onSelected: (Int) -> Unit) {
                             )
                         }
                         "Alerts" -> {
-                            val vm = viewModel<com.capstone.aquabell.ui.viewmodel.AlertsViewModel>()
+                            val vm = viewModel<AlertsViewModel>()
                             val count = vm.unreadCount.collectAsState(initial = 0)
                             BadgedBox(badge = {
                                 if (count.value > 0) {

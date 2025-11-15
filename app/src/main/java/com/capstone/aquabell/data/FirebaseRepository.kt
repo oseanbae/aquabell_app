@@ -110,11 +110,22 @@ class FirebaseRepository(
             if (!hasInternet()) connectionState.tryEmit(ConnectionState.NOT_CONNECTED)
         }
     }
+    private suspend fun ensureAuth() {
+        if (auth.currentUser != null) return
+        try {
+            signInAnonymouslyAwait()
+            Log.i(TAG, "FirebaseAuth anonymous sign-in success")
+        } catch (t: Throwable) {
+            Log.e(TAG, "FirebaseAuth anonymous sign-in failed: ${t.message}", t)
+            throw t
+        }
+    }
 
-    // Removed actuator_states initialization. ESP32 is the single source of truth for actuator_states.
-
+    private suspend fun signInAnonymouslyAwait(): AuthResult {
+        val task = auth.signInAnonymously()
+        return task.awaitTask()
+    }
     private fun liveDataDoc(): DocumentReference = db.collection("live_data").document(deviceId)
-    // Removed controlDoc() and commandControlDoc() - now using RTDB for actuator control
     private fun logsCollection() = db.collection("sensor_logs").document(deviceId).collection("logs")
     private fun alertsCollection() = db.collection("alerts")
     
@@ -449,8 +460,6 @@ class FirebaseRepository(
         commandsRef().addValueEventListener(listener)
         awaitClose { commandsRef().removeEventListener(listener) }
     }
-
-
     suspend fun setRelayOverrides(overrides: RelayStates) {
         val updates = mapOf(
             "fan/isAuto" to false, "fan/value" to overrides.fan,
@@ -468,7 +477,6 @@ class FirebaseRepository(
             throw e
         }
     }
-
     suspend fun setActuatorMode(actuator: String, mode: ControlMode) {
         try {
             val snap = commandsRef().child(actuator).child("value").get().awaitTask()
@@ -518,22 +526,6 @@ class FirebaseRepository(
                 cont.resumeWithException(ex)
             }
         }
-    }
-
-    private suspend fun ensureAuth() {
-        if (auth.currentUser != null) return
-        try {
-            signInAnonymouslyAwait()
-            Log.i(TAG, "FirebaseAuth anonymous sign-in success")
-        } catch (t: Throwable) {
-            Log.e(TAG, "FirebaseAuth anonymous sign-in failed: ${t.message}", t)
-            throw t
-        }
-    }
-
-    private suspend fun signInAnonymouslyAwait(): AuthResult {
-        val task = auth.signInAnonymously()
-        return task.awaitTask()
     }
 
     // Analytics methods
