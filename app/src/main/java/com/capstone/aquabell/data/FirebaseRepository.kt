@@ -22,6 +22,8 @@ import android.content.Context
 import android.net.ConnectivityManager
 import android.net.Network
 import android.net.NetworkCapabilities
+import android.os.Build
+import androidx.annotation.RequiresApi
 import com.google.firebase.FirebaseApp
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -32,6 +34,7 @@ import kotlin.coroutines.resume
 import kotlin.coroutines.resumeWithException
 import kotlin.coroutines.suspendCoroutine
 
+@RequiresApi(Build.VERSION_CODES.N)
 class FirebaseRepository(
     private val db: FirebaseFirestore = FirebaseFirestore.getInstance(),
     private val auth: FirebaseAuth = FirebaseAuth.getInstance(),
@@ -44,7 +47,6 @@ class FirebaseRepository(
     // Connection state: not connected (no internet/firebase), connecting, connected
     enum class ConnectionState { NOT_CONNECTED, CONNECTING, CONNECTED }
     val connectionState: MutableStateFlow<ConnectionState> = MutableStateFlow(ConnectionState.CONNECTING)
-
     private val appContext: Context = FirebaseApp.getInstance().applicationContext
     private val connectivityManager: ConnectivityManager = appContext.getSystemService(Context.CONNECTIVITY_SERVICE) as ConnectivityManager
     private val repoScope: CoroutineScope = CoroutineScope(Dispatchers.IO)
@@ -59,7 +61,7 @@ class FirebaseRepository(
         // Firestore doesn't provide a direct connection callback; we infer from listeners/errors.
         
         // Set a timeout to move from CONNECTING to CONNECTED if we get any response
-        kotlinx.coroutines.CoroutineScope(kotlinx.coroutines.Dispatchers.IO).launch {
+        CoroutineScope(Dispatchers.IO).launch {
             delay(5000) // 5 second timeout
             if (connectionState.value == ConnectionState.CONNECTING) {
                 // If still connecting after 5 seconds, try to force a connection test
@@ -84,6 +86,7 @@ class FirebaseRepository(
         return caps.hasCapability(NetworkCapabilities.NET_CAPABILITY_INTERNET)
     }
 
+    @RequiresApi(Build.VERSION_CODES.N)
     private fun registerNetworkCallback() {
         try {
             connectivityManager.registerDefaultNetworkCallback(object : ConnectivityManager.NetworkCallback() {
@@ -117,8 +120,6 @@ class FirebaseRepository(
     
     // RTDB references
     private fun commandsRef(): DatabaseReference = rtdb.getReference("commands").child(deviceId)
-    private fun actuatorStatesRef(): DatabaseReference = rtdb.getReference("actuator_states").child(deviceId)
-
     fun liveData(): Flow<LiveDataSnapshot> = callbackFlow {
 		val ref = FirebaseDatabase.getInstance().getReference("live_data/$deviceId")
 		val listener = object : ValueEventListener {
@@ -171,7 +172,7 @@ class FirebaseRepository(
     // Alerts (Firestore)
     // ---------------------------------------------------------------------
 
-    suspend fun pushAlert(alert: com.capstone.aquabell.data.model.AlertEntry) {
+    suspend fun pushAlert(alert: AlertEntry) {
         try {
             ensureAuth()
             alertsCollection().document(alert.alertId).set(
@@ -190,7 +191,7 @@ class FirebaseRepository(
         }
     }
 
-    fun listenToAlerts(): kotlinx.coroutines.flow.Flow<List<com.capstone.aquabell.data.model.AlertEntry>> = callbackFlow {
+    fun listenToAlerts():Flow<List<AlertEntry>> = callbackFlow {
         try {
             repoScope.launch { ensureAuth() }
 
@@ -210,7 +211,7 @@ class FirebaseRepository(
                             try {
                                 val data = doc.data ?: return@mapNotNull null
                                 val ts = (data["timestamp"] as? com.google.firebase.Timestamp) ?: com.google.firebase.Timestamp.now()
-                                com.capstone.aquabell.data.model.AlertEntry(
+                                AlertEntry(
                                     alertId = data["alertId"] as? String ?: doc.id,
                                     type = data["type"] as? String ?: "caution",
                                     title = data["title"] as? String ?: "",
@@ -236,8 +237,6 @@ class FirebaseRepository(
             awaitClose { /* no-op */ }
         }
     }
-
-
     suspend fun deleteResolvedAlerts() {
         try {
             ensureAuth()
@@ -258,8 +257,6 @@ class FirebaseRepository(
             throw e
         }
     }
-
-
     suspend fun acknowledgeAlert(alertId: String) {
         try {
             ensureAuth()
@@ -345,13 +342,6 @@ class FirebaseRepository(
             throw e
         }
     }
-
-    // ---------------------------------------------------------------------
-    // RTDB-backed flows kept for UI/ViewModel compatibility
-    // ---------------------------------------------------------------------
-
-
-
     // ---------------------------------------------------------------------
     // Compatibility shims for Firestore-era APIs used in UI
     // These now write/read from RTDB under /commands
@@ -365,7 +355,7 @@ class FirebaseRepository(
 
             Log.d(TAG, "Fetching actuator state from RTDB path: /commands/$deviceId")
 
-            val snapshot = suspendCoroutine<DataSnapshot?> { cont ->
+            val snapshot = suspendCoroutine { cont ->
                 dbRef.get()
                     .addOnSuccessListener { 
                         Log.d(TAG, "✅ RTDB fetch successful, snapshot exists: ${it.exists()}")
@@ -428,12 +418,12 @@ class FirebaseRepository(
         }
     }
 
-    fun commandControl(): Flow<com.capstone.aquabell.data.model.CommandControl> = callbackFlow {
+    fun commandControl(): Flow<CommandControl> = callbackFlow {
         val listener = object : ValueEventListener {
             override fun onDataChange(snapshot: DataSnapshot) {
                 try {
                     val cmds = snapshot.getValue(ActuatorCommands::class.java) ?: ActuatorCommands()
-                    val mapped = com.capstone.aquabell.data.model.CommandControl(
+                    val mapped = CommandControl(
                         fan = ActuatorCommand(mode = if (cmds.fan.isAuto) ControlMode.AUTO else ControlMode.MANUAL, value = cmds.fan.value),
                         light = ActuatorCommand(mode = if (cmds.light.isAuto) ControlMode.AUTO else ControlMode.MANUAL, value = cmds.light.value),
                         pump = ActuatorCommand(mode = if (cmds.pump.isAuto) ControlMode.AUTO else ControlMode.MANUAL, value = cmds.pump.value),
@@ -445,13 +435,13 @@ class FirebaseRepository(
                     connectionState.tryEmit(ConnectionState.CONNECTED)
                 } catch (e: Exception) {
                     Log.e(TAG, "Error mapping commandControl()", e)
-                    trySend(com.capstone.aquabell.data.model.CommandControl())
+                    trySend(CommandControl())
                 }
             }
 
             override fun onCancelled(error: DatabaseError) {
                 Log.e(TAG, "RTDB commandControl listener cancelled: ${error.message}")
-                trySend(com.capstone.aquabell.data.model.CommandControl())
+                trySend(CommandControl())
                 connectionState.tryEmit(ConnectionState.NOT_CONNECTED)
             }
         }
@@ -460,24 +450,6 @@ class FirebaseRepository(
         awaitClose { commandsRef().removeEventListener(listener) }
     }
 
-    suspend fun setControlMode(mode: ControlMode) {
-        val isAuto = mode == ControlMode.AUTO
-        val updates = mapOf(
-            "fan/isAuto" to isAuto,
-            "light/isAuto" to isAuto,
-            "pump/isAuto" to isAuto,
-            "valve/isAuto" to isAuto,
-            "cooler/isAuto" to isAuto,
-            "heater/isAuto" to isAuto,
-        )
-        try {
-            commandsRef().updateChildrenAwait(updates)
-            Log.i(TAG, "setControlMode success → isAuto=$isAuto for all")
-        } catch (e: Exception) {
-            Log.e(TAG, "setControlMode failed: ${e.message}", e)
-            throw e
-        }
-    }
 
     suspend fun setRelayOverrides(overrides: RelayStates) {
         val updates = mapOf(
@@ -515,7 +487,7 @@ class FirebaseRepository(
         this.addOnCompleteListener { task ->
             if (task.isSuccessful) {
                 @Suppress("UNCHECKED_CAST")
-                val result: T? = task.result as T?
+                val result: T? = task.result
                 if (result != null || task.result == null) {
                     // For Void tasks, result is null; resume with Unit cast if caller expects Unit
                     if (result == null) {
@@ -537,7 +509,7 @@ class FirebaseRepository(
         // No cancellation bridge for Firebase Task
     }
 
-    private suspend fun DatabaseReference.updateChildrenAwait(updates: Map<String, Any?>) = suspendCancellableCoroutine<Unit> { cont ->
+    private suspend fun DatabaseReference.updateChildrenAwait(updates: Map<String, Any?>) = suspendCancellableCoroutine { cont ->
         this.updateChildren(updates).addOnCompleteListener { task ->
             if (task.isSuccessful) {
                 cont.resume(Unit)
@@ -574,7 +546,7 @@ class FirebaseRepository(
             val dailyLogsCollection = db.collection("daily_logs")
             val querySnapshot = dailyLogsCollection
                 .whereLessThan("date", today) // Only historical data, not today
-                .orderBy("date", com.google.firebase.firestore.Query.Direction.DESCENDING)
+                .orderBy("date", Query.Direction.DESCENDING)
                 .limit(30) // Last 30 days
                 .get(com.google.firebase.firestore.Source.SERVER)
                 .await()
@@ -627,7 +599,7 @@ class FirebaseRepository(
             // Fetch from sensor_logs/{today}/entries
             val sensorLogsCollection = db.collection("sensor_logs").document(today).collection("entries")
             val querySnapshot = sensorLogsCollection
-                .orderBy("timestamp", com.google.firebase.firestore.Query.Direction.DESCENDING)
+                .orderBy("timestamp", Query.Direction.DESCENDING)
                 .limit(144) // 24 hours * 6 entries per hour (10-minute intervals)
                 .get(com.google.firebase.firestore.Source.SERVER)
                 .await()
@@ -661,7 +633,7 @@ class FirebaseRepository(
             repoScope.launch { ensureAuth() }
             val today = java.text.SimpleDateFormat("yyyy-MM-dd", java.util.Locale.getDefault()).format(java.util.Date())
             val ref = db.collection("sensor_logs").document(today).collection("entries")
-                .orderBy("timestamp", com.google.firebase.firestore.Query.Direction.DESCENDING)
+                .orderBy("timestamp", Query.Direction.DESCENDING)
 
             val registration = ref.addSnapshotListener { snapshot, error ->
                 if (error != null) {
@@ -729,137 +701,3 @@ class FirebaseRepository(
         }
     }
 }
-// Convenience overload using repository deviceId
-//    suspend fun sendCommand(actuator: String, isAuto: Boolean, value: Boolean) {
-//        sendCommand(deviceId, actuator, isAuto, value)
-//    }
-
-//    fun observeActuatorState(deviceId: String, actuator: String, callback: (Boolean) -> Unit) {
-//        val listener = object : ValueEventListener {
-//            override fun onDataChange(snapshot: DataSnapshot) {
-//                try {
-//                    val state = snapshot.getValue(ActuatorState::class.java)
-//                    val isOn = state?.value ?: false
-//                    callback(isOn)
-//                    connectionState.tryEmit(ConnectionState.CONNECTED)
-//                } catch (e: Exception) {
-//                    Log.e(TAG, "Error parsing actuator state for $actuator", e)
-//                    callback(false)
-//                }
-//            }
-//
-//            override fun onCancelled(error: DatabaseError) {
-//                Log.e(TAG, "RTDB actuator state listener cancelled for $actuator: ${error.message}")
-//                callback(false)
-//                connectionState.tryEmit(ConnectionState.NOT_CONNECTED)
-//            }
-//        }
-//
-//        rtdb.getReference("actuator_states").child(deviceId).child(actuator).addValueEventListener(listener)
-//    }
-
-//    private val currentStates: MutableMap<String, ActuatorState> = mutableMapOf(
-//        "fan" to ActuatorState(),
-//        "light" to ActuatorState(),
-//        "pump" to ActuatorState(),
-//        "valve" to ActuatorState()
-//    )
-
-// ViewModel compatibility: toggle helpers
-//    fun toggleActuatorAutoMode(actuator: String) {
-//        repoScope.launch {
-//            try {
-//                val snapshot = commandsRef().child(actuator).get().awaitTask()
-//                val cmd = snapshot.getValue(ActuatorState::class.java) ?: ActuatorState()
-//                val newIsAuto = !cmd.isAuto
-//                sendCommand(deviceId, actuator, newIsAuto, cmd.value)
-//            } catch (e: Exception) {
-//                Log.e(TAG, "Failed to toggle $actuator auto mode: ${e.message}", e)
-//            }
-//        }
-//    }
-//
-//    fun toggleActuatorValue(actuator: String) {
-//        repoScope.launch {
-//            try {
-//                val snapshot = commandsRef().child(actuator).get().awaitTask()
-//                val cmd = snapshot.getValue(ActuatorState::class.java) ?: ActuatorState()
-//                val newValue = !cmd.value
-//                sendCommand(deviceId, actuator, cmd.isAuto, newValue)
-//            } catch (e: Exception) {
-//                Log.e(TAG, "Failed to toggle $actuator value: ${e.message}", e)
-//            }
-//        }
-//    }
-
-//fun actuatorCommands(): Flow<ActuatorCommands> = callbackFlow {
-//        val listener = object : ValueEventListener {
-//            override fun onDataChange(snapshot: DataSnapshot) {
-//                try {
-//                    val commands = snapshot.getValue(ActuatorCommands::class.java) ?: ActuatorCommands()
-//                    // Keep local currentStates in sync with /commands
-//                    currentStates["fan"] = commands.fan
-//                    currentStates["light"] = commands.light
-//                    currentStates["pump"] = commands.pump
-//                    currentStates["valve"] = commands.valve
-//                    trySend(commands)
-//                    connectionState.tryEmit(ConnectionState.CONNECTED)
-//                } catch (e: Exception) {
-//                    Log.e(TAG, "Error parsing actuator commands", e)
-//                    trySend(ActuatorCommands())
-//                }
-//            }
-//
-//            override fun onCancelled(error: DatabaseError) {
-//                Log.e(TAG, "RTDB listener cancelled: ${error.message}")
-//                trySend(ActuatorCommands())
-//                connectionState.tryEmit(ConnectionState.NOT_CONNECTED)
-//            }
-//        }
-//
-//        commandsRef().addValueEventListener(listener)
-//        awaitClose { commandsRef().removeEventListener(listener) }
-//    }
-//
-//    // Public write APIs that accept explicit values from UI, no stale reads
-//    fun updateActuatorValue(actuator: String, value: Boolean) {
-//        val current = currentStates[actuator] ?: ActuatorState()
-//        repoScope.launch {
-//            try {
-//                sendCommand(deviceId, actuator, current.isAuto, value)
-//            } catch (_: Throwable) { }
-//        }
-//    }
-//
-//    fun updateActuatorAuto(actuator: String, isAuto: Boolean) {
-//        val current = currentStates[actuator] ?: ActuatorState()
-//        repoScope.launch {
-//            try {
-//                sendCommand(deviceId, actuator, isAuto, current.value)
-//            } catch (_: Throwable) { }
-//        }
-//    }
-//
-//    fun actuatorStates(): Flow<ActuatorStates> = callbackFlow {
-//        val listener = object : ValueEventListener {
-//            override fun onDataChange(snapshot: DataSnapshot) {
-//                try {
-//                    val states = snapshot.getValue(ActuatorStates::class.java) ?: ActuatorStates()
-//                    trySend(states)
-//                    connectionState.tryEmit(ConnectionState.CONNECTED)
-//                } catch (e: Exception) {
-//                    Log.e(TAG, "Error parsing actuator states", e)
-//                    trySend(ActuatorStates())
-//                }
-//            }
-//
-//            override fun onCancelled(error: DatabaseError) {
-//                Log.e(TAG, "RTDB actuator states listener cancelled: ${error.message}")
-//                trySend(ActuatorStates())
-//                connectionState.tryEmit(ConnectionState.NOT_CONNECTED)
-//            }
-//        }
-//
-//        actuatorStatesRef().addValueEventListener(listener)
-//        awaitClose { actuatorStatesRef().removeEventListener(listener) }
-//    }
